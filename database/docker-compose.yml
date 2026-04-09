@@ -1,0 +1,22 @@
+version: '3.8'
+
+services:
+  db:
+    image: mysql:8.0
+    container_name: fashion_store_db
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: rootpassword     # Mật khẩu tài khoản root
+      MYSQL_DATABASE: fashion_store         # Tự động tạo database tên là fashion_store
+      MYSQL_USER: devuser                   # (Tùy chọn) Tạo thêm user cho dev
+      MYSQL_PASSWORD: devpassword           # (Tùy chọn) Mật khẩu cho user dev
+    ports:
+      - "3307:3307"                         # Map port 3307 của máy host với container
+    volumes:
+      # Mount file init.sql vào thư mục khởi tạo của MySQL
+      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
+      # (Tùy chọn) Mount volume để dữ liệu không bị mất khi xóa container
+      - mysql_data:/var/lib/mysql
+
+volumes:
+  mysql_data:
