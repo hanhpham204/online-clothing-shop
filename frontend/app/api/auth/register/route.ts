@@ -2,13 +2,10 @@ import { NextResponse } from "next/server";
 
 const BACKEND_BASE_URL = process.env.BACKEND_BASE_URL ?? "http://localhost:8080";
 
-type AuthResponse = {
-  accessToken: string;
-  tokenType: string;
-  userId: number;
+type RegisterResponse = {
+  message: string;
   email: string;
-  name: string;
-  role: string;
+  requiresEmailVerification: boolean;
 };
 
 type ErrorResponse = {
@@ -28,7 +25,7 @@ export async function POST(request: Request) {
       cache: "no-store",
     });
 
-    const data = (await backendResponse.json().catch(() => ({}))) as AuthResponse | ErrorResponse;
+    const data = (await backendResponse.json().catch(() => ({}))) as RegisterResponse | ErrorResponse;
     return NextResponse.json(data, { status: backendResponse.status });
   } catch {
     return NextResponse.json(

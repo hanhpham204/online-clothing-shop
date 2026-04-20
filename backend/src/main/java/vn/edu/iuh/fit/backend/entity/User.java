@@ -13,8 +13,17 @@ import jakarta.persistence.Table;
 
 import java.time.Instant;
 
+import lombok.AllArgsConstructor;
+import lombok.Getter;
+import lombok.NoArgsConstructor;
+import lombok.Setter;
+
 @Entity
 @Table(name = "users")
+@Getter
+@Setter
+@NoArgsConstructor
+@AllArgsConstructor
 public class User {
 
     @Id
@@ -29,7 +38,7 @@ public class User {
     @Column(nullable = false, unique = true, length = 255)
     private String email;
 
-    @Column(nullable = false, length = 255)
+    @Column(length = 255)
     private String password;
 
     @Column(nullable = false, length = 255)
@@ -40,6 +49,24 @@ public class User {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(name = "provider", nullable = false, length = 20)
+    private String provider = "LOCAL"; // LOCAL | GOOGLE
+
+    @Column(name = "provider_id", length = 255)
+    private String providerId; // sub của Google
+
+    @Column(name = "avatar_url", length = 500)
+    private String avatarUrl;
+
+    @Column(name = "email_verified", nullable = false)
+    private boolean emailVerified = false;
+
+    @Column(name = "email_verification_otp", length = 6)
+    private String emailVerificationOtp;
+
+    @Column(name = "email_verification_otp_expires_at")
+    private Instant emailVerificationOtpExpiresAt;
 
     @PrePersist
     void prePersist() {
@@ -102,5 +129,29 @@ public class User {
 
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
+    }
+
+    public boolean isEmailVerified() {
+        return emailVerified;
+    }
+
+    public void setEmailVerified(boolean emailVerified) {
+        this.emailVerified = emailVerified;
+    }
+
+    public String getEmailVerificationOtp() {
+        return emailVerificationOtp;
+    }
+
+    public void setEmailVerificationOtp(String emailVerificationOtp) {
+        this.emailVerificationOtp = emailVerificationOtp;
+    }
+
+    public Instant getEmailVerificationOtpExpiresAt() {
+        return emailVerificationOtpExpiresAt;
+    }
+
+    public void setEmailVerificationOtpExpiresAt(Instant emailVerificationOtpExpiresAt) {
+        this.emailVerificationOtpExpiresAt = emailVerificationOtpExpiresAt;
     }
 }
