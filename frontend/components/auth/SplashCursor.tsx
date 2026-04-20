@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { memo, useEffect, useRef } from "react";
 
 interface ColorRGB {
   r: number;
@@ -57,6 +57,8 @@ interface DoubleFBO {
   write: FBO;
   swap: () => void;
 }
+
+const DEFAULT_BACK_COLOR: ColorRGB = { r: 0.5, g: 0, b: 0 };
 
 function pointerPrototype(): Pointer {
   return {
@@ -156,7 +158,7 @@ function hashCode(s: string) {
   return hash;
 }
 
-export default function SplashCursor({
+function SplashCursor({
   SIM_RESOLUTION = 128,
   DYE_RESOLUTION = 1440,
   CAPTURE_RESOLUTION = 512,
@@ -169,14 +171,15 @@ export default function SplashCursor({
   SPLAT_FORCE = 6000,
   SHADING = true,
   COLOR_UPDATE_SPEED = 10,
-  BACK_COLOR = { r: 0.5, g: 0, b: 0 },
+  BACK_COLOR = DEFAULT_BACK_COLOR,
   TRANSPARENT = true,
 }: SplashCursorProps) {
   const canvasRef = useRef<HTMLCanvasElement>(null);
 
   useEffect(() => {
-    const canvas = canvasRef.current;
-    if (!canvas) return;
+    const canvasEl = canvasRef.current;
+    if (!canvasEl) return;
+    const canvas = canvasEl;
 
     const pointers: Pointer[] = [pointerPrototype()];
 
@@ -198,8 +201,10 @@ export default function SplashCursor({
       TRANSPARENT,
     };
 
-    const { gl, ext } = getWebGLContext(canvas);
-    if (!gl || !ext || !ext.formatRGBA || !ext.formatRG || !ext.formatR) return;
+    const context = getWebGLContext(canvas);
+    if (!context.gl || !context.ext || !context.ext.formatRGBA || !context.ext.formatRG || !context.ext.formatR) return;
+    const gl = context.gl;
+    const ext = context.ext;
 
     if (!ext.supportLinearFiltering) {
       config.DYE_RESOLUTION = 256;
@@ -215,29 +220,29 @@ export default function SplashCursor({
 
     function compileShader(type: number, source: string, keywords: string[] | null = null): WebGLShader | null {
       const shaderSource = addKeywords(source, keywords);
-      const shader = gl.createShader(type);
+      const shader = gl?.createShader(type);
       if (!shader) return null;
-      gl.shaderSource(shader, shaderSource);
-      gl.compileShader(shader);
+      gl?.shaderSource(shader, shaderSource);
+      gl?.compileShader(shader);
       return shader;
     }
 
     function createProgram(vertexShader: WebGLShader | null, fragmentShader: WebGLShader | null): WebGLProgram | null {
       if (!vertexShader || !fragmentShader) return null;
-      const program = gl.createProgram();
+      const program = gl?.createProgram();
       if (!program) return null;
-      gl.attachShader(program, vertexShader);
-      gl.attachShader(program, fragmentShader);
-      gl.linkProgram(program);
-      return gl.getProgramParameter(program, gl.LINK_STATUS) ? program : null;
+      gl?.attachShader(program, vertexShader);
+      gl?.attachShader(program, fragmentShader);
+      gl?.linkProgram(program);
+      return gl?.getProgramParameter(program, gl.LINK_STATUS) ? program : null;
     }
 
     function getUniforms(program: WebGLProgram) {
       const uniforms: Record<string, WebGLUniformLocation | null> = {};
-      const uniformCount = gl.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
+      const uniformCount = gl?.getProgramParameter(program, gl.ACTIVE_UNIFORMS);
       for (let i = 0; i < uniformCount; i++) {
-        const info = gl.getActiveUniform(program, i);
-        if (info) uniforms[info.name] = gl.getUniformLocation(program, info.name);
+        const info = gl?.getActiveUniform(program, i);
+        if (info) uniforms[info.name] = gl?.getUniformLocation(program, info.name) ?? null;
       }
       return uniforms;
     }
@@ -566,22 +571,22 @@ export default function SplashCursor({
     let pressure: DoubleFBO;
 
     function createFBO(w: number, h: number, internalFormat: number, format: number, type: number, param: number): FBO {
-      gl.activeTexture(gl.TEXTURE0);
-      const texture = gl.createTexture();
-      const fbo = gl.createFramebuffer();
+      gl?.activeTexture(gl.TEXTURE0);
+      const texture = gl?.createTexture();
+      const fbo = gl?.createFramebuffer();
       if (!texture || !fbo) throw new Error("Cannot create frame buffer objects");
 
-      gl.bindTexture(gl.TEXTURE_2D, texture);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, param);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, param);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-      gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
-      gl.texImage2D(gl.TEXTURE_2D, 0, internalFormat, w, h, 0, format, type, null);
+      gl?.bindTexture(gl.TEXTURE_2D, texture);
+      gl?.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, param);
+        gl?.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, param);
+      gl?.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+      gl?.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      gl?.texImage2D(gl.TEXTURE_2D, 0, internalFormat, w, h, 0, format, type, null);
 
-      gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
-      gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
-      gl.viewport(0, 0, w, h);
-      gl.clear(gl.COLOR_BUFFER_BIT);
+      gl?.bindFramebuffer(gl.FRAMEBUFFER, fbo);
+      gl?.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, texture, 0);
+      gl?.viewport(0, 0, w, h);
+      gl?.clear(gl.COLOR_BUFFER_BIT);
 
       return {
         texture,
@@ -591,8 +596,8 @@ export default function SplashCursor({
         texelSizeX: 1 / w,
         texelSizeY: 1 / h,
         attach(id: number) {
-          gl.activeTexture(gl.TEXTURE0 + id);
-          gl.bindTexture(gl.TEXTURE_2D, texture);
+          gl?.activeTexture(gl.TEXTURE0 + id);
+          gl?.bindTexture(gl.TEXTURE_2D, texture);
           return id;
         },
       };
@@ -634,7 +639,7 @@ export default function SplashCursor({
     ) {
       const newFBO = createFBO(w, h, internalFormat, format, type, param);
       copyProgram.bind();
-      if (copyProgram.uniforms.uTexture) gl.uniform1i(copyProgram.uniforms.uTexture, target.attach(0));
+      if (copyProgram.uniforms.uTexture) gl?.uniform1i(copyProgram.uniforms.uTexture, target.attach(0));
       blit(newFBO, false);
       return newFBO;
     }
@@ -1037,6 +1042,8 @@ export default function SplashCursor({
     </div>
   );
 }
+
+export default memo(SplashCursor);
 
 function supportRenderTextureFormat(
   gl: WebGLRenderingContext | WebGL2RenderingContext,
