@@ -8,8 +8,13 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 import vn.edu.iuh.fit.backend.dto.auth.AuthResponse;
+import vn.edu.iuh.fit.backend.dto.auth.GoogleLoginRequest;
 import vn.edu.iuh.fit.backend.dto.auth.LoginRequest;
+import vn.edu.iuh.fit.backend.dto.auth.MessageResponse;
+import vn.edu.iuh.fit.backend.dto.auth.RegisterResponse;
+import vn.edu.iuh.fit.backend.dto.auth.ResendEmailOtpRequest;
 import vn.edu.iuh.fit.backend.dto.auth.RegisterRequest;
+import vn.edu.iuh.fit.backend.dto.auth.VerifyEmailOtpRequest;
 import vn.edu.iuh.fit.backend.service.AuthService;
 
 @RestController
@@ -23,12 +28,26 @@ public class AuthController {
     }
 
     @PostMapping("/register")
-    public ResponseEntity<AuthResponse> register(@Valid @RequestBody RegisterRequest request) {
+    public ResponseEntity<RegisterResponse> register(@Valid @RequestBody RegisterRequest request) {
         return ResponseEntity.status(HttpStatus.CREATED).body(authService.register(request));
     }
 
     @PostMapping("/login")
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
+    }
+    @PostMapping("/google")
+    public ResponseEntity<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
+        return ResponseEntity.ok(authService.loginWithGoogle(request.idToken()));
+    }
+
+    @PostMapping("/verify-email-otp")
+    public ResponseEntity<MessageResponse> verifyEmailOtp(@Valid @RequestBody VerifyEmailOtpRequest request) {
+        return ResponseEntity.ok(authService.verifyEmailOtp(request));
+    }
+
+    @PostMapping("/resend-email-otp")
+    public ResponseEntity<MessageResponse> resendEmailOtp(@Valid @RequestBody ResendEmailOtpRequest request) {
+        return ResponseEntity.ok(authService.resendEmailOtp(request));
     }
 }
