@@ -101,7 +101,7 @@ export default function HomePage() {
           </div>
 
           <div className="cursor-pointer text-2xl tracking-[0.2em] text-[#d9c49e]" style={{ fontFamily: "'Noto Serif', serif" }}>
-            ATELIER
+            Luja Laf
           </div>
 
           <div className="flex items-center gap-6">
@@ -149,11 +149,11 @@ export default function HomePage() {
             </button>
           </div>
           <div className="group relative aspect-video w-full max-w-5xl overflow-hidden rounded-xl shadow-2xl">
-            <div className="absolute inset-0 z-10 bg-[#131313]/20 backdrop-blur-[2px] transition-all duration-700 group-hover:backdrop-blur-0" />
+            <div className="pointer-events-none absolute inset-0 z-10 bg-linear-to-t from-[#131313]/20 via-transparent to-transparent" />
             <img
               src="https://lh3.googleusercontent.com/aida-public/AB6AXuCJLT-GVhP71_SpT_sIwalZ7ryIbC0PMkmj_xcMgNCxw7htSfRQOVX-GjtDKJX6V9upih8Pwhy6ykt9ycl3vaE8cLVSwHLN3ySJRMPDAp8otc4ekfThew9czHafUYFJ-f6cipX3kvbRy23AtWXOvFB6yQByDqNrhvBXhaApVYgBPiS5QX7V-kmCft01kchBkQAeNAl0H4zZepHSi4NdQw9gE3d9GROSCi8-TsAvwH6mvQzhlhSuOibNMCh19myP-X86EizCefjuPCfk"
               alt="A minimalist designer watch on a dark reflective surface."
-              className="h-full w-full scale-105 object-cover transition-transform duration-2000 ease-out group-hover:scale-100"
+              className="h-full w-full object-cover object-center transition-transform duration-1000 ease-out group-hover:scale-[1.02]"
             />
           </div>
         </div>
@@ -176,26 +176,18 @@ export default function HomePage() {
       </section>
 
       <section className="overflow-hidden bg-[#131313] py-40">
-        <div className="container mx-auto mb-20 flex items-end justify-between px-8">
+        <div className="container mx-auto mb-20 flex flex-col gap-8 px-8 md:flex-row md:items-end md:justify-between">
           <div>
             <span className="mb-4 block text-[0.6875rem] uppercase tracking-[0.3em] text-[#d9c49e]">New Arrivals</span>
             <h2 className="text-4xl text-[#e5e2e1] md:text-5xl" style={{ fontFamily: "'Noto Serif', serif" }}>
               Artisanal Objects
             </h2>
           </div>
-          <div className="flex gap-4">
-            <button className="flex h-12 w-12 items-center justify-center rounded-full border border-[#46474a]/30 transition-all duration-500 hover:bg-[#d9c49e] hover:text-[#3b2f14]">
-              <span className="material-symbols-outlined">arrow_back</span>
-            </button>
-            <button className="flex h-12 w-12 items-center justify-center rounded-full border border-[#46474a]/30 transition-all duration-500 hover:bg-[#d9c49e] hover:text-[#3b2f14]">
-              <span className="material-symbols-outlined">arrow_forward</span>
-            </button>
-          </div>
         </div>
 
-        <div className="no-scrollbar flex gap-8 overflow-x-auto px-8 pb-20">
+        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-8 px-8 pb-20 md:grid-cols-2 xl:grid-cols-3">
           {products.map((product) => (
-            <div key={product.name} className="group min-w-[400px] shrink-0">
+            <div key={product.name} className="group">
               <div className="relative mb-8 aspect-4/5 overflow-hidden rounded-lg bg-[#1c1b1b]">
                 <img
                   src={product.imageUrl}
@@ -247,7 +239,7 @@ export default function HomePage() {
             </h2>
             <div className="grid grid-cols-1 gap-16 text-left md:grid-cols-2">
               <p className="text-lg leading-relaxed font-light text-[#c8c6c8]">
-                Founded in the heart of the Marais, ATELIER began as a small collection of bespoke leather goods.
+                Founded in the heart of the Marais, Luja Laf began as a small collection of bespoke leather goods.
                 Today, it stands as a sanctuary for those who reject the ephemeral and embrace the eternal.
               </p>
               <p className="text-lg leading-relaxed font-light text-[#c8c6c8]">
@@ -273,7 +265,7 @@ export default function HomePage() {
             <div className="flex-1">
               <span className="mb-6 block text-[0.6875rem] uppercase tracking-[0.3em] text-[#d9c49e]">Private Invitations</span>
               <h2 className="mb-6 text-4xl text-[#e5e2e1] md:text-5xl" style={{ fontFamily: "'Noto Serif', serif" }}>
-                Join the Atelier
+                Join the Luja Laf
               </h2>
               <p className="mb-10 leading-relaxed text-[#c8c6c8]">
                 Gain early access to seasonal collections, private viewings, and bespoke commissions. Membership is
