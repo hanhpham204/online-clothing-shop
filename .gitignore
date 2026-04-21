@@ -43,5 +43,3 @@ pnpm-debug.log*
 .env*
 
 .claude*
-
-application.properties*
