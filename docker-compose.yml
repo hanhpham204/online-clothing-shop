@@ -1,0 +1,92 @@
+version: '3.8'
+
+services:
+  # ─── PostgreSQL Database ───────────────────────────
+  postgres:
+    image: postgres:16-alpine
+    container_name: voguestore-postgres
+    environment:
+      POSTGRES_DB: voguestore
+      POSTGRES_USER: voguestore
+      POSTGRES_PASSWORD: voguestore_secret
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U voguestore"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - voguestore-net
+
+  # ─── Redis Cache ───────────────────────────────────
+  redis:
+    image: redis:7-alpine
+    container_name: voguestore-redis
+    ports:
+      - "6379:6379"
+    command: redis-server --appendonly yes
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - voguestore-net
+
+  # ─── Spring Boot Backend ───────────────────────────
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: voguestore-backend
+    ports:
+      - "8080:8080"
+    environment:
+      SPRING_PROFILES_ACTIVE: docker
+      SPRING_DATASOURCE_URL: jdbc:postgresql://postgres:5432/voguestore
+      SPRING_DATASOURCE_USERNAME: voguestore
+      SPRING_DATASOURCE_PASSWORD: voguestore_secret
+      SPRING_DATA_REDIS_HOST: redis
+      SPRING_DATA_REDIS_PORT: 6379
+      JWT_SECRET: VogueStoreJwtSecretKey2024VeryLongAndSecureKeyForHS512Algorithm
+      JWT_ACCESS_EXPIRATION: 900000
+      JWT_REFRESH_EXPIRATION: 604800000
+      SEPAY_API_KEY: ${SEPAY_API_KEY:-your_sepay_api_key}
+      SEPAY_BANK_ACCOUNT: ${SEPAY_BANK_ACCOUNT:-0123456789}
+      SEPAY_BANK_NAME: ${SEPAY_BANK_NAME:-Vietcombank}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - voguestore-net
+
+  # ─── Next.js Frontend ─────────────────────────────
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: voguestore-frontend
+    ports:
+      - "3000:3000"
+    environment:
+      NEXT_PUBLIC_API_URL: http://localhost:8080/api
+      NEXT_PUBLIC_BACKEND_INTERNAL_URL: http://backend:8080/api
+    depends_on:
+      - backend
+    networks:
+      - voguestore-net
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  voguestore-net:
+    driver: bridge

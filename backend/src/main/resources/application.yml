@@ -1,0 +1,67 @@
+server:
+  port: 8080
+
+spring:
+  application:
+    name: voguestore-backend
+
+  datasource:
+    url: jdbc:postgresql://localhost:5432/voguestore
+    username: voguestore
+    password: voguestore_secret
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+
+  data:
+    redis:
+      host: localhost
+      port: 6379
+      timeout: 6000ms
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 10MB
+
+  jackson:
+    serialization:
+      write-dates-as-timestamps: false
+    default-property-inclusion: non_null
+
+# JWT Configuration
+jwt:
+  secret: ${JWT_SECRET:VogueStoreJwtSecretKey2024VeryLongAndSecureKeyForHS512Algorithm}
+  access-expiration: ${JWT_ACCESS_EXPIRATION:900000}
+  refresh-expiration: ${JWT_REFRESH_EXPIRATION:604800000}
+
+# SePay Configuration
+sepay:
+  api-key: ${SEPAY_API_KEY:your_sepay_api_key}
+  bank-account: ${SEPAY_BANK_ACCOUNT:0123456789}
+  bank-name: ${SEPAY_BANK_NAME:Vietcombank}
+  webhook-ips: 172.236.138.20,172.233.83.68,171.244.35.2,151.158.108.68,151.158.109.79,103.255.238.139
+
+# File upload
+file:
+  upload-dir: ./uploads
+
+# Logging
+logging:
+  level:
+    com.voguestore: DEBUG
+    org.springframework.security: INFO
+  pattern:
+    console: "%d{yyyy-MM-dd HH:mm:ss} [%thread] %-5level %logger{36} - %msg%n"
