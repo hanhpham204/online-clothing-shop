@@ -1,113 +1,87 @@
 package com.voguestore.security;
 
-import io.jsonwebtoken.*;
+import com.voguestore.config.JwtProperties;
+import io.jsonwebtoken.Claims;
+import io.jsonwebtoken.ExpiredJwtException;
+import io.jsonwebtoken.Jwts;
+import io.jsonwebtoken.JwtException;
 import io.jsonwebtoken.security.Keys;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-import org.springframework.beans.factory.annotation.Value;
+import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Component;
 
 import javax.crypto.SecretKey;
 import java.nio.charset.StandardCharsets;
+import java.time.Instant;
 import java.util.Date;
+import java.util.List;
 import java.util.UUID;
 
+@Slf4j
 @Component
+@RequiredArgsConstructor
 public class JwtTokenProvider {
 
-    private static final Logger logger = LoggerFactory.getLogger(JwtTokenProvider.class);
+    private static final String CLAIM_ROLES = "roles";
+    private static final String CLAIM_SESSION_ID = "sessionId";
+    private static final String CLAIM_TYPE = "type";
+    private static final String ACCESS_TYPE = "access";
 
-    @Value("${jwt.secret}")
-    private String jwtSecret;
+    private final JwtProperties jwtProperties;
 
-    @Value("${jwt.access-expiration}")
-    private long accessExpiration;
-
-    @Value("${jwt.refresh-expiration}")
-    private long refreshExpiration;
-
-    private SecretKey getSigningKey() {
-        return Keys.hmacShaKeyFor(jwtSecret.getBytes(StandardCharsets.UTF_8));
-    }
-
-    public String generateAccessToken(Long userId, String email, String role) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + accessExpiration);
+    public String generateAccessToken(Long userId, List<String> roles, Long sessionId) {
+        Instant now = Instant.now();
+        Instant expiry = now.plusMillis(jwtProperties.getAccessExpiration());
 
         return Jwts.builder()
                 .id(UUID.randomUUID().toString())
+                .issuer(jwtProperties.getIssuer())
                 .subject(userId.toString())
-                .claim("email", email)
-                .claim("role", role)
-                .claim("type", "access")
-                .issuedAt(now)
-                .expiration(expiryDate)
-                .signWith(getSigningKey())
-                .compact();
-    }
-
-    public String generateRefreshToken(Long userId) {
-        Date now = new Date();
-        Date expiryDate = new Date(now.getTime() + refreshExpiration);
-
-        return Jwts.builder()
-                .id(UUID.randomUUID().toString())
-                .subject(userId.toString())
-                .claim("type", "refresh")
-                .issuedAt(now)
-                .expiration(expiryDate)
+                .issuedAt(Date.from(now))
+                .expiration(Date.from(expiry))
+                .claim(CLAIM_TYPE, ACCESS_TYPE)
+                .claim(CLAIM_ROLES, roles)
+                .claim(CLAIM_SESSION_ID, sessionId)
                 .signWith(getSigningKey())
                 .compact();
     }
 
     public Long getUserIdFromToken(String token) {
-        Claims claims = parseClaims(token);
-        return Long.parseLong(claims.getSubject());
+        return Long.parseLong(parseClaims(token).getSubject());
     }
 
-    public String getEmailFromToken(String token) {
-        Claims claims = parseClaims(token);
-        return claims.get("email", String.class);
+    public Long getSessionIdFromToken(String token) {
+        Number sessionId = parseClaims(token).get(CLAIM_SESSION_ID, Number.class);
+        return sessionId == null ? null : sessionId.longValue();
     }
 
-    public String getRoleFromToken(String token) {
-        Claims claims = parseClaims(token);
-        return claims.get("role", String.class);
-    }
-
-    public String getTokenType(String token) {
-        Claims claims = parseClaims(token);
-        return claims.get("type", String.class);
+    public List<String> getRoles(String token) {
+        return parseClaims(token).get(CLAIM_ROLES, List.class);
     }
 
     public String getJtiFromToken(String token) {
-        Claims claims = parseClaims(token);
-        return claims.getId();
+        return parseClaims(token).getId();
     }
 
     public long getExpirationFromToken(String token) {
-        Claims claims = parseClaims(token);
-        return claims.getExpiration().getTime();
+        return parseClaims(token).getExpiration().getTime();
     }
 
-    public boolean validateToken(String token) {
+    public boolean validateAccessToken(String token) {
         try {
-            parseClaims(token);
-            return true;
-        } catch (MalformedJwtException ex) {
-            logger.error("Invalid JWT token");
+            Claims claims = parseClaims(token);
+            return ACCESS_TYPE.equals(claims.get(CLAIM_TYPE, String.class));
         } catch (ExpiredJwtException ex) {
-            logger.error("Expired JWT token");
-        } catch (UnsupportedJwtException ex) {
-            logger.error("Unsupported JWT token");
-        } catch (IllegalArgumentException ex) {
-            logger.error("JWT claims string is empty");
+            log.debug("Access token expired");
+        } catch (JwtException | IllegalArgumentException ex) {
+            log.debug("Access token invalid: {}", ex.getMessage());
         }
         return false;
     }
 
     private Claims parseClaims(String token) {
         return Jwts.parser()
+                .requireIssuer(jwtProperties.getIssuer())
                 .verifyWith(getSigningKey())
                 .build()
                 .parseSignedClaims(token)
@@ -115,6 +89,14 @@ public class JwtTokenProvider {
     }
 
     public long getAccessExpiration() {
-        return accessExpiration;
+        return jwtProperties.getAccessExpiration();
+    }
+
+    public long getRefreshExpiration() {
+        return jwtProperties.getRefreshExpiration();
+    }
+
+    private SecretKey getSigningKey() {
+        return Keys.hmacShaKeyFor(jwtProperties.getSecret().getBytes(StandardCharsets.UTF_8));
     }
 }

@@ -1,5 +1,6 @@
 package com.voguestore.security;
 
+import com.voguestore.repository.AuthSessionRepository;
 import com.voguestore.service.RedisService;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -16,7 +17,10 @@ import org.springframework.util.StringUtils;
 import org.springframework.web.filter.OncePerRequestFilter;
 import lombok.RequiredArgsConstructor;
 import java.io.IOException;
-import java.util.Collections;
+import java.time.LocalDateTime;
+import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 
 @Component
 @RequiredArgsConstructor
@@ -26,6 +30,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtTokenProvider tokenProvider;
     private final RedisService redisService;
+    private final AuthSessionRepository authSessionRepository;
 
     @Override
     protected void doFilterInternal(HttpServletRequest request,
@@ -34,7 +39,7 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         try {
             String jwt = getJwtFromRequest(request);
 
-            if (StringUtils.hasText(jwt) && tokenProvider.validateToken(jwt)) {
+            if (StringUtils.hasText(jwt) && tokenProvider.validateAccessToken(jwt)) {
                 // Check if token is blacklisted
                 String jti = tokenProvider.getJtiFromToken(jwt);
                 if (redisService.isTokenBlacklisted(jti)) {
@@ -43,21 +48,23 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                     return;
                 }
 
-                // Check token type — only access tokens for API calls
-                String tokenType = tokenProvider.getTokenType(jwt);
-                if (!"access".equals(tokenType)) {
+                Long userId = tokenProvider.getUserIdFromToken(jwt);
+                List<String> roles = tokenProvider.getRoles(jwt);
+                Long sessionId = tokenProvider.getSessionIdFromToken(jwt);
+                if (sessionId == null || authSessionRepository.findById(sessionId)
+                        .filter(session -> !session.isRevoked() && session.getExpiresAt().isAfter(LocalDateTime.now()))
+                        .isEmpty()) {
                     filterChain.doFilter(request, response);
                     return;
                 }
-
-                Long userId = tokenProvider.getUserIdFromToken(jwt);
-                String email = tokenProvider.getEmailFromToken(jwt);
-                String role = tokenProvider.getRoleFromToken(jwt);
+                Set<SimpleGrantedAuthority> authorities = roles == null ? Set.of() : roles.stream()
+                        .map(role -> new SimpleGrantedAuthority("ROLE_" + role))
+                        .collect(Collectors.toSet());
 
                 UsernamePasswordAuthenticationToken authentication =
                         new UsernamePasswordAuthenticationToken(
-                                userId, null,
-                                Collections.singletonList(new SimpleGrantedAuthority("ROLE_" + role))
+                                userId, sessionId,
+                                authorities
                         );
                 authentication.setDetails(new WebAuthenticationDetailsSource().buildDetails(request));
                 SecurityContextHolder.getContext().setAuthentication(authentication);

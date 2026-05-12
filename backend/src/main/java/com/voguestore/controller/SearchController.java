@@ -2,6 +2,7 @@ package com.voguestore.controller;
 
 import com.voguestore.dto.response.ApiResponse;
 import com.voguestore.dto.response.ProductResponse;
+import com.voguestore.security.SecurityUtils;
 import com.voguestore.service.SearchService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.data.domain.Page;
@@ -39,7 +40,7 @@ public class SearchController {
 
         // Record search history for authenticated users
         if (authentication != null && keyword != null && !keyword.isBlank()) {
-            Long userId = (Long) authentication.getPrincipal();
+            Long userId = SecurityUtils.currentUserId(authentication);
             searchService.recordSearch(userId, keyword);
         }
 
@@ -75,7 +76,7 @@ public class SearchController {
      */
     @GetMapping("/search/history")
     public ResponseEntity<ApiResponse<List<String>>> getHistory(Authentication authentication) {
-        Long userId = (Long) authentication.getPrincipal();
+        Long userId = SecurityUtils.currentUserId(authentication);
         List<String> history = searchService.getSearchHistory(userId);
         return ResponseEntity.ok(ApiResponse.success(history));
     }
@@ -86,7 +87,7 @@ public class SearchController {
      */
     @DeleteMapping("/search/history")
     public ResponseEntity<ApiResponse<Void>> clearHistory(Authentication authentication) {
-        Long userId = (Long) authentication.getPrincipal();
+        Long userId = SecurityUtils.currentUserId(authentication);
         searchService.clearSearchHistory(userId);
         return ResponseEntity.ok(ApiResponse.success("Search history cleared", null));
     }

@@ -4,36 +4,51 @@ import com.voguestore.dto.request.ChangePasswordRequest;
 import com.voguestore.dto.request.LoginRequest;
 import com.voguestore.dto.request.RegisterRequest;
 import com.voguestore.dto.response.AuthResponse;
+import com.voguestore.entity.AuthSession;
 import com.voguestore.entity.User;
 import com.voguestore.enums.Role;
 import com.voguestore.exception.BadRequestException;
 import com.voguestore.exception.ResourceNotFoundException;
 import com.voguestore.exception.UnauthorizedException;
+import com.voguestore.repository.AuthSessionRepository;
 import com.voguestore.repository.UserRepository;
+import com.voguestore.security.DeviceMetadataResolver;
 import com.voguestore.security.JwtTokenProvider;
+import com.voguestore.security.RefreshTokenGenerator;
+import com.voguestore.security.TokenHashService;
+import jakarta.servlet.http.HttpServletRequest;
 import lombok.RequiredArgsConstructor;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.Duration;
+import java.time.LocalDateTime;
+import java.util.List;
+
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class AuthService {
 
-    private static final Logger logger = LoggerFactory.getLogger(AuthService.class);
-
     private final UserRepository userRepository;
+    private final AuthSessionRepository authSessionRepository;
     private final PasswordEncoder passwordEncoder;
     private final JwtTokenProvider tokenProvider;
     private final RedisService redisService;
+    private final RefreshTokenGenerator refreshTokenGenerator;
+    private final TokenHashService tokenHashService;
+    private final DeviceMetadataResolver deviceMetadataResolver;
+    private final LoginAttemptService loginAttemptService;
+    private final SessionService sessionService;
 
     @Transactional
-    public AuthResponse register(RegisterRequest request) {
+    public AuthResponse register(RegisterRequest request, HttpServletRequest httpRequest) {
         if (userRepository.existsByEmail(request.getEmail())) {
             throw new BadRequestException("Email already registered");
         }
+        validatePasswordStrength(request.getPassword());
 
         User user = User.builder()
                 .email(request.getEmail())
@@ -45,66 +60,62 @@ public class AuthService {
                 .build();
 
         user = userRepository.save(user);
-        logger.info("New user registered: {}", user.getEmail());
+        log.info("auth.audit event=register_success userId={} email={}", user.getId(), user.getEmail());
 
-        return generateAuthResponse(user);
+        return generateAuthResponse(user, httpRequest);
     }
 
-    public AuthResponse login(LoginRequest request) {
+    @Transactional
+    public AuthResponse login(LoginRequest request, HttpServletRequest httpRequest) {
+        String throttleKey = request.getEmail().toLowerCase() + ":" + httpRequest.getRemoteAddr();
+        loginAttemptService.assertLoginAllowed(throttleKey);
+
         User user = userRepository.findByEmail(request.getEmail())
                 .orElseThrow(() -> new UnauthorizedException("Invalid email or password"));
 
         if (!passwordEncoder.matches(request.getPassword(), user.getPassword())) {
+            loginAttemptService.recordFailedAttempt(throttleKey);
             throw new UnauthorizedException("Invalid email or password");
         }
 
         if (!user.getIsActive()) {
+            loginAttemptService.recordFailedAttempt(throttleKey);
             throw new UnauthorizedException("Account is deactivated");
         }
 
-        logger.info("User logged in: {}", user.getEmail());
-        return generateAuthResponse(user);
+        loginAttemptService.recordSuccessfulAttempt(throttleKey);
+        log.info("auth.audit event=login_success userId={} email={}", user.getId(), user.getEmail());
+        return generateAuthResponse(user, httpRequest);
     }
 
-    public AuthResponse refreshToken(String refreshToken) {
-        if (!tokenProvider.validateToken(refreshToken)) {
-            throw new UnauthorizedException("Invalid refresh token");
+    @Transactional
+    public AuthResponse refreshToken(String refreshToken, HttpServletRequest httpRequest) {
+        String hashedToken = tokenHashService.hash(refreshToken);
+        AuthSession currentSession = authSessionRepository.findByRefreshTokenHash(hashedToken)
+                .orElseThrow(() -> new UnauthorizedException("Invalid refresh token"));
+
+        if (currentSession.isRevoked() || currentSession.getExpiresAt().isBefore(LocalDateTime.now())) {
+            throw new UnauthorizedException("Refresh token has expired or been revoked");
         }
 
-        String tokenType = tokenProvider.getTokenType(refreshToken);
-        if (!"refresh".equals(tokenType)) {
-            throw new UnauthorizedException("Invalid token type");
+        currentSession.setRevoked(true);
+        currentSession.setRevokedAt(LocalDateTime.now());
+        authSessionRepository.save(currentSession);
+
+        User user = currentSession.getUser();
+        if (user == null || !Boolean.TRUE.equals(user.getIsActive())) {
+            throw new UnauthorizedException("User is inactive");
         }
 
-        String jti = tokenProvider.getJtiFromToken(refreshToken);
-        if (redisService.isTokenBlacklisted(jti)) {
-            throw new UnauthorizedException("Token has been revoked");
-        }
-
-        Long userId = tokenProvider.getUserIdFromToken(refreshToken);
-        User user = userRepository.findById(userId)
-                .orElseThrow(() -> new UnauthorizedException("User not found"));
-
-        // Generate new access token only
-        String newAccessToken = tokenProvider.generateAccessToken(
-                user.getId(), user.getEmail(), user.getRole().name());
-
-        return AuthResponse.builder()
-                .accessToken(newAccessToken)
-                .refreshToken(refreshToken) // keep same refresh token
-                .tokenType("Bearer")
-                .expiresIn(tokenProvider.getAccessExpiration())
-                .user(buildUserInfo(user))
-                .build();
+        log.info("auth.audit event=refresh_token_rotated userId={} oldSessionId={}", user.getId(), currentSession.getId());
+        return generateAuthResponse(user, httpRequest);
     }
 
-    public void logout(String token) {
-        if (tokenProvider.validateToken(token)) {
-            String jti = tokenProvider.getJtiFromToken(token);
-            long expiration = tokenProvider.getExpirationFromToken(token);
-            redisService.blacklistToken(jti, expiration);
-            logger.info("Token blacklisted: {}", jti);
-        }
+    @Transactional
+    public void logoutByRefreshToken(String refreshToken) {
+        String hashedToken = tokenHashService.hash(refreshToken);
+        sessionService.revokeByRefreshTokenHash(hashedToken);
+        log.info("auth.audit event=logout_current_session");
     }
 
     @Transactional
@@ -120,15 +131,24 @@ public class AuthService {
             throw new BadRequestException("New password must be different from current password");
         }
 
+        validatePasswordStrength(request.getNewPassword());
         user.setPassword(passwordEncoder.encode(request.getNewPassword()));
         userRepository.save(user);
-        logger.info("Password changed for user: {}", user.getEmail());
+        sessionService.revokeAllSessions(userId);
+        log.info("auth.audit event=password_changed userId={}", userId);
     }
 
-    private AuthResponse generateAuthResponse(User user) {
-        String accessToken = tokenProvider.generateAccessToken(
-                user.getId(), user.getEmail(), user.getRole().name());
-        String refreshToken = tokenProvider.generateRefreshToken(user.getId());
+    public void revokeAccessToken(String token) {
+        if (tokenProvider.validateAccessToken(token)) {
+            redisService.blacklistToken(tokenProvider.getJtiFromToken(token), tokenProvider.getExpirationFromToken(token));
+        }
+    }
+
+    private AuthResponse generateAuthResponse(User user, HttpServletRequest httpRequest) {
+        String refreshToken = refreshTokenGenerator.generate();
+        AuthSession session = buildSession(user, refreshToken, httpRequest);
+        authSessionRepository.save(session);
+        String accessToken = tokenProvider.generateAccessToken(user.getId(), List.of(user.getRole().name()), session.getId());
 
         return AuthResponse.builder()
                 .accessToken(accessToken)
@@ -137,6 +157,32 @@ public class AuthService {
                 .expiresIn(tokenProvider.getAccessExpiration())
                 .user(buildUserInfo(user))
                 .build();
+    }
+
+    private AuthSession buildSession(User user, String refreshToken, HttpServletRequest request) {
+        DeviceMetadataResolver.DeviceMetadata metadata = deviceMetadataResolver.resolve(request);
+        return AuthSession.builder()
+                .user(user)
+                .refreshTokenHash(tokenHashService.hash(refreshToken))
+                .deviceName(metadata.getDeviceName())
+                .browser(metadata.getBrowser())
+                .os(metadata.getOs())
+                .ipAddress(metadata.getIpAddress())
+                .approximateLocation(metadata.getApproximateLocation())
+                .userAgent(metadata.getUserAgent())
+                .expiresAt(LocalDateTime.now().plus(Duration.ofMillis(tokenProvider.getRefreshExpiration())))
+                .revoked(false)
+                .build();
+    }
+
+    private void validatePasswordStrength(String password) {
+        boolean hasUpper = password.chars().anyMatch(Character::isUpperCase);
+        boolean hasLower = password.chars().anyMatch(Character::isLowerCase);
+        boolean hasDigit = password.chars().anyMatch(Character::isDigit);
+        boolean hasSpecial = password.chars().anyMatch(ch -> !Character.isLetterOrDigit(ch));
+        if (password.length() < 8 || !hasUpper || !hasLower || !hasDigit || !hasSpecial) {
+            throw new BadRequestException("Password must be at least 8 chars and include upper, lower, number, symbol");
+        }
     }
 
     private AuthResponse.UserInfo buildUserInfo(User user) {

@@ -3,6 +3,7 @@ package com.voguestore.controller;
 import com.voguestore.dto.request.UpdateProfileRequest;
 import com.voguestore.dto.response.ApiResponse;
 import com.voguestore.dto.response.AuthResponse;
+import com.voguestore.security.SecurityUtils;
 import com.voguestore.service.UserService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
@@ -19,7 +20,7 @@ public class UserController {
 
     @GetMapping("/me")
     public ResponseEntity<ApiResponse<AuthResponse.UserInfo>> getProfile(Authentication authentication) {
-        Long userId = (Long) authentication.getPrincipal();
+        Long userId = SecurityUtils.currentUserId(authentication);
         AuthResponse.UserInfo profile = userService.getProfile(userId);
         return ResponseEntity.ok(ApiResponse.success(profile));
     }
@@ -28,7 +29,7 @@ public class UserController {
     public ResponseEntity<ApiResponse<AuthResponse.UserInfo>> updateProfile(
             Authentication authentication,
             @Valid @RequestBody UpdateProfileRequest request) {
-        Long userId = (Long) authentication.getPrincipal();
+        Long userId = SecurityUtils.currentUserId(authentication);
         AuthResponse.UserInfo updated = userService.updateProfile(userId, request);
         return ResponseEntity.ok(ApiResponse.success("Profile updated", updated));
     }

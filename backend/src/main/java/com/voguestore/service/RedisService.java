@@ -24,6 +24,8 @@ public class RedisService {
     private final ObjectMapper objectMapper;
 
     private static final String TOKEN_BLACKLIST_PREFIX = "token:blacklist:";
+    private static final String LOGIN_ATTEMPT_PREFIX = "auth:login-attempt:";
+    private static final String LOGIN_LOCK_PREFIX = "auth:login-lock:";
     private static final String SEARCH_CACHE_PREFIX = "search:results:";
     private static final String SUGGEST_CACHE_PREFIX = "search:suggest:";
     private static final String SEARCH_HISTORY_PREFIX = "search:history:";
@@ -47,6 +49,28 @@ public class RedisService {
 
     public boolean isTokenBlacklisted(String jti) {
         return Boolean.TRUE.equals(redisTemplate.hasKey(TOKEN_BLACKLIST_PREFIX + jti));
+    }
+
+    public long incrementLoginAttempts(String key, long windowSeconds) {
+        String redisKey = LOGIN_ATTEMPT_PREFIX + key;
+        Long attempts = redisTemplate.opsForValue().increment(redisKey);
+        if (attempts != null && attempts == 1L) {
+            redisTemplate.expire(redisKey, windowSeconds, TimeUnit.SECONDS);
+        }
+        return attempts == null ? 0 : attempts;
+    }
+
+    public void lockLogin(String key, long lockDurationSeconds) {
+        redisTemplate.opsForValue().set(LOGIN_LOCK_PREFIX + key, "locked", lockDurationSeconds, TimeUnit.SECONDS);
+    }
+
+    public boolean isLoginLocked(String key) {
+        return Boolean.TRUE.equals(redisTemplate.hasKey(LOGIN_LOCK_PREFIX + key));
+    }
+
+    public void resetLoginAttempts(String key) {
+        redisTemplate.delete(LOGIN_ATTEMPT_PREFIX + key);
+        redisTemplate.delete(LOGIN_LOCK_PREFIX + key);
     }
 
     // ═══════════════════════════════════════════
