@@ -43,3 +43,6 @@ pnpm-debug.log*
 .env*
 
 .claude*
+
+backend/firebase-service-account.json
+*/firebase-service-account.json
