@@ -103,6 +103,20 @@ Consumers use JSON conversion, retry, DLQ settings, event payload logging, and a
 - `product-service`: product list `5m`, product detail `10m`, category list `30m`, with invalidation on product/category changes.
 - `cart-service`: cart key `cart:user:{userId}` with `24h` TTL.
 
+## Environment variables
+
+All services read configuration from the **root** `.env` file (never commit it).
+
+1. Copy the template: `cp .env.example .env` (from repo root).
+2. Set required secrets: `JWT_SECRET`, `MYSQL_ROOT_PASSWORD`, `RABBITMQ_PASSWORD`, `MAIL_*`, `APP_ADMIN_PASSWORD`, etc.
+3. Run with Docker Compose — each service uses `env_file: .env` plus Docker host overrides (`mysql`, `redis`, `rabbitmq` hostnames).
+
+`application.yml` files use `${ENV_VAR}` placeholders only. **No JWT, DB password, or mail credentials are hardcoded** in source.
+
+For local `mvn spring-boot:run`, export variables from `.env` (IDE EnvFile plugin, or PowerShell `Get-Content .env | ForEach-Object { ... }`).
+
+See `ops/application-env.common.yml` for the shared binding patterns.
+
 ## Run Steps
 
 Build and test:
@@ -116,7 +130,8 @@ mvn clean package -DskipTests
 Run infrastructure and services with Docker:
 
 ```bash
-cd fashion-store-microservices
+# From repo root (where .env and docker-compose.yml live)
+cp .env.example .env   # then edit secrets
 docker compose up -d --build
 ```
 
@@ -144,4 +159,4 @@ mvn test
 - Event idempotency is in-memory. Persist processed event IDs for production-grade duplicate handling.
 - Search is database-backed with JPA specifications; a real search index is a future improvement.
 - Direct service ports are exposed for development. In production, only the gateway should be public.
-- Default local admin is `admin@fashion-store.local` / `admin123`; override with environment variables before any real deployment.
+- Admin seed credentials come from `APP_ADMIN_EMAIL` and `APP_ADMIN_PASSWORD` in `.env` only.

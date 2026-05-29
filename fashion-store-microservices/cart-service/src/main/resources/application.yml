@@ -1,5 +1,6 @@
 server:
-  port: 8084
+  port: ${CART_SERVICE_PORT:8084}
+
 spring:
   application:
     name: cart-service
@@ -10,9 +11,10 @@ spring:
   rabbitmq:
     host: ${RABBITMQ_HOST:localhost}
     port: ${RABBITMQ_PORT:5672}
-    username: ${RABBITMQ_USERNAME:guest}
-    password: ${RABBITMQ_PASSWORD:guest}
+    username: ${RABBITMQ_USERNAME}
+    password: ${RABBITMQ_PASSWORD}
+
 eureka:
   client:
     service-url:
-      defaultZone: ${EUREKA_URI:http://localhost:8761/eureka/}
+      defaultZone: ${EUREKA_URI:http://localhost:${EUREKA_PORT:8761}/eureka/}

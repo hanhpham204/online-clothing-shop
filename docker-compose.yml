@@ -2,7 +2,8 @@
 # Fashion Store Microservices — root docker-compose
 # =============================================================================
 # Chạy: docker compose up -d
-# Tất cả biến môi trường nhạy cảm/cấu hình đọc từ file `.env` cùng cấp (root).
+# Tất cả biến nhạy cảm đọc từ `.env` (root) qua `env_file` — KHÔNG hardcode secret trong repo.
+# Copy `.env.example` → `.env` trước khi chạy. Khối `environment:` chỉ override hostname Docker.
 # Build context trỏ vào thư mục `fashion-store-microservices` để các module
 # Spring Boot vẫn build đúng (mỗi service có Dockerfile riêng).
 # =============================================================================
@@ -23,6 +24,8 @@ services:
     image: mysql:8.4
     container_name: fashion-mysql
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     ports:
@@ -40,6 +43,8 @@ services:
     image: redis:7.4-alpine
     container_name: fashion-redis
     restart: unless-stopped
+    env_file:
+      - .env
     ports:
       - "${REDIS_PORT:-6379}:6379"
     healthcheck:
@@ -52,6 +57,8 @@ services:
     image: rabbitmq:3.13-management-alpine
     container_name: fashion-rabbitmq
     restart: unless-stopped
+    env_file:
+      - .env
     environment:
       RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
       RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
@@ -71,6 +78,8 @@ services:
       dockerfile: eureka-server/Dockerfile
     container_name: fashion-eureka-server
     <<: *java-defaults
+    env_file:
+      - .env
     environment:
       JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
     ports:
@@ -82,6 +91,8 @@ services:
       dockerfile: api-gateway/Dockerfile
     container_name: fashion-api-gateway
     <<: *java-defaults
+    env_file:
+      - .env
     environment:
       JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
       EUREKA_URI: http://eureka-server:8761/eureka/
@@ -100,6 +111,8 @@ services:
       dockerfile: auth-service/Dockerfile
     container_name: fashion-auth-service
     <<: *java-defaults
+    env_file:
+      - .env
     environment:
       JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
       AUTH_DB_URL: jdbc:mysql://mysql:3306/fashion_auth_db
@@ -120,6 +133,8 @@ services:
       MAIL_USERNAME: ${MAIL_USERNAME}
       MAIL_PASSWORD: ${MAIL_PASSWORD}
       MAIL_FROM: ${MAIL_FROM}
+      MAIL_SMTP_AUTH: ${MAIL_SMTP_AUTH}
+      MAIL_SMTP_STARTTLS_ENABLE: ${MAIL_SMTP_STARTTLS_ENABLE}
       EMAIL_VERIFICATION_OTP_EXPIRATION_MINUTES: ${EMAIL_VERIFICATION_OTP_EXPIRATION_MINUTES}
       APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL}
       APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD}
@@ -141,6 +156,8 @@ services:
       dockerfile: user-service/Dockerfile
     container_name: fashion-user-service
     <<: *java-defaults
+    env_file:
+      - .env
     environment:
       JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
       USER_DB_URL: jdbc:mysql://mysql:3306/fashion_user_db
@@ -161,6 +178,8 @@ services:
       dockerfile: product-service/Dockerfile
     container_name: fashion-product-service
     <<: *java-defaults
+    env_file:
+      - .env
     environment:
       JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
       PRODUCT_DB_URL: jdbc:mysql://mysql:3306/fashion_product_db
@@ -193,6 +212,8 @@ services:
       dockerfile: cart-service/Dockerfile
     container_name: fashion-cart-service
     <<: *java-defaults
+    env_file:
+      - .env
     environment:
       JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
       REDIS_HOST: redis
@@ -216,6 +237,8 @@ services:
       dockerfile: order-service/Dockerfile
     container_name: fashion-order-service
     <<: *java-defaults
+    env_file:
+      - .env
     environment:
       JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
       ORDER_DB_URL: jdbc:mysql://mysql:3306/fashion_order_db
@@ -241,6 +264,8 @@ services:
       dockerfile: payment-service/Dockerfile
     container_name: fashion-payment-service
     <<: *java-defaults
+    env_file:
+      - .env
     environment:
       JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
       PAYMENT_DB_URL: jdbc:mysql://mysql:3306/fashion_payment_db
@@ -267,6 +292,8 @@ services:
       dockerfile: inventory-service/Dockerfile
     container_name: fashion-inventory-service
     <<: *java-defaults
+    env_file:
+      - .env
     environment:
       JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
       INVENTORY_DB_URL: jdbc:mysql://mysql:3306/fashion_inventory_db
@@ -292,6 +319,8 @@ services:
       dockerfile: notification-service/Dockerfile
     container_name: fashion-notification-service
     <<: *java-defaults
+    env_file:
+      - .env
     environment:
       JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
       NOTIFICATION_DB_URL: jdbc:mysql://mysql:3306/fashion_notification_db

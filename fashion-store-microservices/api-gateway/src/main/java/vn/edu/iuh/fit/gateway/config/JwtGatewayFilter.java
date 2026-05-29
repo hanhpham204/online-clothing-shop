@@ -47,7 +47,7 @@ public class JwtGatewayFilter implements GlobalFilter, Ordered {
 
     private final ObjectMapper objectMapper;
 
-    @Value("${app.jwt.secret:change-this-secret-key-for-graduation-project}")
+    @Value("${app.jwt.secret}")
     private String secret;
 
     public JwtGatewayFilter(ObjectMapper objectMapper) {
