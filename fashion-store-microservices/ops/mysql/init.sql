@@ -1,0 +1,8 @@
+CREATE DATABASE IF NOT EXISTS fashion_auth_db;
+CREATE DATABASE IF NOT EXISTS fashion_user_db;
+CREATE DATABASE IF NOT EXISTS fashion_product_db;
+CREATE DATABASE IF NOT EXISTS fashion_cart_db;
+CREATE DATABASE IF NOT EXISTS fashion_order_db;
+CREATE DATABASE IF NOT EXISTS fashion_payment_db;
+CREATE DATABASE IF NOT EXISTS fashion_inventory_db;
+CREATE DATABASE IF NOT EXISTS fashion_notification_db;

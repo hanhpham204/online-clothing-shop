@@ -1,38 +1,32 @@
 # Online Clothing Shop
 
-This is an e-commerce platform for an online clothing shop.
+This repository contains the legacy Spring Boot backend, the Next.js frontend, and the new microservices implementation for the graduation project.
 
 ## Project Structure
 
-- **`backend/`**: Spring Boot backend application.
-- **`frontend/`**: Next.js frontend application.
+- `backend/`: legacy Spring Boot backend. Keep it until equivalent behavior is fully migrated.
+- `frontend/`: Next.js frontend. It should call only the API Gateway with `NEXT_PUBLIC_API_URL=http://localhost:8080`.
+- `fashion-store-microservices/`: Eureka, API Gateway, backend microservices, shared libraries, Docker Compose, tests, and migration docs.
+- `database/`: legacy database scripts/reference data.
 
-## Getting Started
+## Main Run Commands
 
-### Prerequisites
-- Java (for the Spring Boot backend)
-- Node.js (for the Next.js frontend)
+Backend microservices:
 
-### Backend Setup
-1. Navigate to the `backend` directory:
-   ```bash
-   cd backend
-   ```
-2. Run the application:
-   ```bash
-   ./mvnw spring-boot:run
-   ```
+```bash
+cd fashion-store-microservices
+mvn clean test
+mvn clean package -DskipTests
+docker compose up -d --build
+```
 
-### Frontend Setup
-1. Navigate to the `frontend` directory:
-   ```bash
-   cd frontend
-   ```
-2. Install dependencies:
-   ```bash
-   npm install
-   ```
-3. Start the development server:
-   ```bash
-   npm run dev
-   ```
+Frontend:
+
+```bash
+cd frontend
+npm install
+$env:NEXT_PUBLIC_API_URL="http://localhost:8080"
+npm run dev
+```
+
+See `fashion-store-microservices/README.md` for module list, ports, APIs, events, Docker details, and current limitations.

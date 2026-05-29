@@ -1,22 +1,322 @@
+# =============================================================================
+# Fashion Store Microservices — root docker-compose
+# =============================================================================
+# Chạy: docker compose up -d
+# Tất cả biến môi trường nhạy cảm/cấu hình đọc từ file `.env` cùng cấp (root).
+# Build context trỏ vào thư mục `fashion-store-microservices` để các module
+# Spring Boot vẫn build đúng (mỗi service có Dockerfile riêng).
+# =============================================================================
+
+# ---------------------------------------------------------------------------
+# Anchor dùng chung cho 10 service JVM (eureka, gateway, 8 business services).
+# Giới hạn CPU + RAM để không chiếm hết tài nguyên máy host khi cùng warm-up.
+# Tune qua biến .env: BACKEND_CPUS, BACKEND_MEM, BACKEND_JAVA_OPTS.
+# ---------------------------------------------------------------------------
+x-java-defaults: &java-defaults
+  restart: unless-stopped
+  cpus: ${BACKEND_CPUS:-0.5}
+  mem_limit: ${BACKEND_MEM:-512m}
+
 services:
-  db:
-    image: mysql:8.0
-    container_name: fashion_store_db
-    restart: always
-    # Bổ sung dòng command này để ép MySQL dùng chuẩn utf8mb4 hỗ trợ tiếng Việt
-    command: --character-set-server=utf8mb4 --collation-server=utf8mb4_unicode_ci
+  # --------------------------- Infrastructure ---------------------------
+  mysql:
+    image: mysql:8.4
+    container_name: fashion-mysql
+    restart: unless-stopped
     environment:
-      MYSQL_ROOT_PASSWORD: rootpassword     # Mật khẩu tài khoản root
-      MYSQL_DATABASE: fashion_store         # Tự động tạo database tên là fashion_store
-      MYSQL_USER: devuser                   # (Tùy chọn) Tạo thêm user cho dev
-      MYSQL_PASSWORD: devpassword           # (Tùy chọn) Mật khẩu cho user dev
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD}
     ports:
-      - "3308:3306"                         # Map port 3308 của máy host với port 3306 của container
+      - "${MYSQL_PORT:-3306}:3306"
     volumes:
-      # Mount file init.sql vào thư mục khởi tạo của MySQL
-      - ./init.sql:/docker-entrypoint-initdb.d/init.sql
-      # Mount volume để dữ liệu không bị mất khi xóa container
       - mysql_data:/var/lib/mysql
+      - ./fashion-store-microservices/ops/mysql/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "mysqladmin ping -h localhost -p$${MYSQL_ROOT_PASSWORD}"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  redis:
+    image: redis:7.4-alpine
+    container_name: fashion-redis
+    restart: unless-stopped
+    ports:
+      - "${REDIS_PORT:-6379}:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    container_name: fashion-rabbitmq
+    restart: unless-stopped
+    environment:
+      RABBITMQ_DEFAULT_USER: ${RABBITMQ_USERNAME}
+      RABBITMQ_DEFAULT_PASS: ${RABBITMQ_PASSWORD}
+    ports:
+      - "${RABBITMQ_PORT:-5672}:5672"
+      - "${RABBITMQ_MGMT_PORT:-15672}:15672"
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
+  # --------------------------- Platform services ---------------------------
+  eureka-server:
+    build:
+      context: ./fashion-store-microservices
+      dockerfile: eureka-server/Dockerfile
+    container_name: fashion-eureka-server
+    <<: *java-defaults
+    environment:
+      JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
+    ports:
+      - "${EUREKA_PORT:-8761}:8761"
+
+  api-gateway:
+    build:
+      context: ./fashion-store-microservices
+      dockerfile: api-gateway/Dockerfile
+    container_name: fashion-api-gateway
+    <<: *java-defaults
+    environment:
+      JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
+      EUREKA_URI: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ALLOWED_ORIGINS: ${CORS_ALLOWED_ORIGINS}
+    ports:
+      - "${API_GATEWAY_PORT:-8080}:8080"
+    depends_on:
+      eureka-server:
+        condition: service_started
+
+  # --------------------------- Business services ---------------------------
+  auth-service:
+    build:
+      context: ./fashion-store-microservices
+      dockerfile: auth-service/Dockerfile
+    container_name: fashion-auth-service
+    <<: *java-defaults
+    environment:
+      JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
+      AUTH_DB_URL: jdbc:mysql://mysql:3306/fashion_auth_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ACCESS_TOKEN_EXPIRATION_MS: ${JWT_ACCESS_TOKEN_EXPIRATION_MS}
+      JWT_REFRESH_TOKEN_EXPIRATION_MS: ${JWT_REFRESH_TOKEN_EXPIRATION_MS}
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID}
+      MAIL_ENABLED: ${MAIL_ENABLED}
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      EMAIL_VERIFICATION_OTP_EXPIRATION_MINUTES: ${EMAIL_VERIFICATION_OTP_EXPIRATION_MINUTES}
+      APP_ADMIN_EMAIL: ${APP_ADMIN_EMAIL}
+      APP_ADMIN_PASSWORD: ${APP_ADMIN_PASSWORD}
+    ports:
+      - "8081:8081"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  user-service:
+    build:
+      context: ./fashion-store-microservices
+      dockerfile: user-service/Dockerfile
+    container_name: fashion-user-service
+    <<: *java-defaults
+    environment:
+      JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
+      USER_DB_URL: jdbc:mysql://mysql:3306/fashion_user_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+    ports:
+      - "8082:8082"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  product-service:
+    build:
+      context: ./fashion-store-microservices
+      dockerfile: product-service/Dockerfile
+    container_name: fashion-product-service
+    <<: *java-defaults
+    environment:
+      JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
+      PRODUCT_DB_URL: jdbc:mysql://mysql:3306/fashion_product_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      PRODUCT_SEED_ENABLED: true
+      PRODUCT_SEED_FILE: /app/config/product_image_links_for_sql_agent.json
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+    ports:
+      - "8083:8083"
+    volumes:
+      - ./product_image_links_for_sql_agent.json:/app/config/product_image_links_for_sql_agent.json:ro
+    depends_on:
+      mysql:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  cart-service:
+    build:
+      context: ./fashion-store-microservices
+      dockerfile: cart-service/Dockerfile
+    container_name: fashion-cart-service
+    <<: *java-defaults
+    environment:
+      JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
+      REDIS_HOST: redis
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+    ports:
+      - "8084:8084"
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  order-service:
+    build:
+      context: ./fashion-store-microservices
+      dockerfile: order-service/Dockerfile
+    container_name: fashion-order-service
+    <<: *java-defaults
+    environment:
+      JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
+      ORDER_DB_URL: jdbc:mysql://mysql:3306/fashion_order_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+    ports:
+      - "8085:8085"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  payment-service:
+    build:
+      context: ./fashion-store-microservices
+      dockerfile: payment-service/Dockerfile
+    container_name: fashion-payment-service
+    <<: *java-defaults
+    environment:
+      JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
+      PAYMENT_DB_URL: jdbc:mysql://mysql:3306/fashion_payment_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+      PAYMENT_MOCK_SUCCESS_RATE: ${PAYMENT_MOCK_SUCCESS_RATE}
+    ports:
+      - "8086:8086"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  inventory-service:
+    build:
+      context: ./fashion-store-microservices
+      dockerfile: inventory-service/Dockerfile
+    container_name: fashion-inventory-service
+    <<: *java-defaults
+    environment:
+      JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
+      INVENTORY_DB_URL: jdbc:mysql://mysql:3306/fashion_inventory_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+    ports:
+      - "8087:8087"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
+
+  notification-service:
+    build:
+      context: ./fashion-store-microservices
+      dockerfile: notification-service/Dockerfile
+    container_name: fashion-notification-service
+    <<: *java-defaults
+    environment:
+      JAVA_TOOL_OPTIONS: "${BACKEND_JAVA_OPTS:--XX:+UseContainerSupport -XX:ActiveProcessorCount=1 -XX:+UseSerialGC -Xms128m -Xmx384m -Xss512k}"
+      NOTIFICATION_DB_URL: jdbc:mysql://mysql:3306/fashion_notification_db
+      MYSQL_USER: root
+      MYSQL_PASSWORD: ${MYSQL_ROOT_PASSWORD}
+      RABBITMQ_HOST: rabbitmq
+      RABBITMQ_USERNAME: ${RABBITMQ_USERNAME}
+      RABBITMQ_PASSWORD: ${RABBITMQ_PASSWORD}
+      EUREKA_URI: http://eureka-server:8761/eureka/
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_PORT: ${MAIL_PORT}
+      MAIL_USERNAME: ${MAIL_USERNAME}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+      MAIL_FROM: ${MAIL_FROM}
+      BREVO_API_KEY: ${BREVO_API_KEY}
+      BREVO_FROM_NAME: ${BREVO_FROM_NAME}
+    ports:
+      - "8088:8088"
+    depends_on:
+      mysql:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      eureka-server:
+        condition: service_started
 
 volumes:
   mysql_data:

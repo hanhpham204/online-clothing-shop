@@ -1,0 +1,15 @@
+vn\edu\iuh\fit\common\event\config\CommonRabbitConfig.class
+vn\edu\iuh\fit\common\event\OrderCancelledEvent.class
+vn\edu\iuh\fit\common\event\OrderItemPayload.class
+vn\edu\iuh\fit\common\event\OrderCreatedEvent.class
+vn\edu\iuh\fit\common\event\PaymentFailedEvent.class
+vn\edu\iuh\fit\common\event\CartClearedEvent.class
+vn\edu\iuh\fit\common\event\InventoryReservedEvent.class
+vn\edu\iuh\fit\common\event\InventoryFailedEvent.class
+vn\edu\iuh\fit\common\event\PaymentCompletedEvent.class
+vn\edu\iuh\fit\common\event\ProductUpdatedEvent.class
+vn\edu\iuh\fit\common\event\EventRoutingKeys.class
+vn\edu\iuh\fit\common\event\UserRegisteredEvent.class
+vn\edu\iuh\fit\common\event\EventSupport.class
+vn\edu\iuh\fit\common\event\OrderPaidEvent.class
+vn\edu\iuh\fit\common\event\DomainEvent.class

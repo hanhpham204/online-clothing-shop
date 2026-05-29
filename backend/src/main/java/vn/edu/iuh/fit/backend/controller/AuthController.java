@@ -11,6 +11,7 @@ import vn.edu.iuh.fit.backend.dto.auth.AuthResponse;
 import vn.edu.iuh.fit.backend.dto.auth.GoogleLoginRequest;
 import vn.edu.iuh.fit.backend.dto.auth.LoginRequest;
 import vn.edu.iuh.fit.backend.dto.auth.MessageResponse;
+import vn.edu.iuh.fit.backend.dto.auth.RefreshTokenRequest;
 import vn.edu.iuh.fit.backend.dto.auth.RegisterResponse;
 import vn.edu.iuh.fit.backend.dto.auth.ResendEmailOtpRequest;
 import vn.edu.iuh.fit.backend.dto.auth.RegisterRequest;
@@ -36,9 +37,20 @@ public class AuthController {
     public ResponseEntity<AuthResponse> login(@Valid @RequestBody LoginRequest request) {
         return ResponseEntity.ok(authService.login(request));
     }
+
     @PostMapping("/google")
     public ResponseEntity<AuthResponse> loginWithGoogle(@Valid @RequestBody GoogleLoginRequest request) {
         return ResponseEntity.ok(authService.loginWithGoogle(request.idToken()));
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<AuthResponse> refresh(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.refresh(request));
+    }
+
+    @PostMapping("/logout")
+    public ResponseEntity<MessageResponse> logout(@Valid @RequestBody RefreshTokenRequest request) {
+        return ResponseEntity.ok(authService.logout(request));
     }
 
     @PostMapping("/verify-email-otp")
