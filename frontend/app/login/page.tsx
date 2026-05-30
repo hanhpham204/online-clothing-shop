@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useAuth } from "../components/AuthProvider";
 import { AuthError } from "../lib/auth";
+import { getGoogleFirebaseIdToken } from "../lib/firebase";
 
 function ArrowLeftIcon() {
   return (
@@ -60,11 +61,12 @@ function FacebookIcon() {
 
 export default function LoginPage() {
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, loginWithGoogle } = useAuth();
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+  const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -83,6 +85,24 @@ export default function LoginPage() {
       );
     } finally {
       setSubmitting(false);
+    }
+  }
+
+  async function handleGoogleLogin() {
+    setError(null);
+    setGoogleSubmitting(true);
+    try {
+      const firebaseIdToken = await getGoogleFirebaseIdToken();
+      await loginWithGoogle(firebaseIdToken);
+      router.push("/account");
+    } catch (err) {
+      setError(
+        err instanceof Error
+          ? err.message
+          : "Unable to sign in with Google. Please try again."
+      );
+    } finally {
+      setGoogleSubmitting(false);
     }
   }
 
@@ -179,7 +199,7 @@ export default function LoginPage() {
           {/* Sign in */}
           <button
             type="submit"
-            disabled={submitting}
+            disabled={submitting || googleSubmitting}
             className="w-full rounded-lg bg-accent py-4 text-[14px] font-medium uppercase tracking-[0.7px] text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition-all hover:bg-accent-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
           >
             {submitting ? "Signing in…" : "Sign In"}
@@ -199,10 +219,12 @@ export default function LoginPage() {
         <div className="grid grid-cols-2 gap-4">
           <button
             type="button"
-            className="flex items-center justify-center gap-3 rounded-lg border border-border-soft bg-primary py-3 text-[14px] font-medium tracking-[0.14px] text-text-main transition-colors hover:bg-neutral-bg"
+            onClick={handleGoogleLogin}
+            disabled={submitting || googleSubmitting}
+            className="flex items-center justify-center gap-3 rounded-lg border border-border-soft bg-primary py-3 text-[14px] font-medium tracking-[0.14px] text-text-main transition-colors hover:bg-neutral-bg disabled:cursor-not-allowed disabled:opacity-60"
           >
             <GoogleIcon />
-            Google
+            {googleSubmitting ? "Connecting..." : "Google"}
           </button>
           <button
             type="button"
