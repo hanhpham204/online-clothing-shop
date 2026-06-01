@@ -1,12 +1,4 @@
-import path from "node:path";
-import { fileURLToPath } from "node:url";
-import { loadEnvConfig } from "@next/env";
 import type { NextConfig } from "next";
-
-const frontendDir = path.dirname(fileURLToPath(import.meta.url));
-const repoRoot = path.resolve(frontendDir, "..");
-
-loadEnvConfig(repoRoot);
 
 // Auth-service base URL (Spring Boot service on :8081 by default).
 // Requests to /api/auth/* are proxied here, so the browser stays same-origin (no CORS).
