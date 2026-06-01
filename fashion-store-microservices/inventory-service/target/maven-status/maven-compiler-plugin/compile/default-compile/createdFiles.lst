@@ -1,8 +1,0 @@
-vn\edu\iuh\fit\inventory\controller\InventoryController.class
-vn\edu\iuh\fit\inventory\domain\entity\InventoryStock.class
-vn\edu\iuh\fit\inventory\repository\InventoryRepository.class
-vn\edu\iuh\fit\inventory\exception\GlobalExceptionHandler.class
-vn\edu\iuh\fit\inventory\InventoryServiceApplication.class
-vn\edu\iuh\fit\inventory\config\RabbitConfig.class
-vn\edu\iuh\fit\inventory\dto\StockResponse.class
-vn\edu\iuh\fit\inventory\service\InventoryService.class

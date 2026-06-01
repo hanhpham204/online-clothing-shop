@@ -10,12 +10,12 @@ export type UserProfile = {
 
 const BASE = "/api/users";
 
-async function get<T>(path: string, accessToken: string): Promise<T> {
+async function get<T>(path: string): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, {
-      headers: { Authorization: `Bearer ${accessToken}` },
-    });
+    // The Next.js middleware automatically reads the HttpOnly 'access_token' cookie 
+    // and attaches it as an 'Authorization: Bearer' header before forwarding to the gateway.
+    res = await fetch(`${BASE}${path}`);
   } catch {
     throw new AuthError(
       "Cannot reach the server. Please make sure the user service is running.",
@@ -37,6 +37,6 @@ async function get<T>(path: string, accessToken: string): Promise<T> {
 }
 
 export const userApi = {
-  getProfile: (userId: number, accessToken: string) =>
-    get<UserProfile>(`/${userId}`, accessToken),
+  getProfile: (userId: number | string) =>
+    get<UserProfile>(`/${userId}`),
 };

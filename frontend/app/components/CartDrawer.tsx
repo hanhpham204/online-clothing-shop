@@ -3,6 +3,7 @@
 
 import { useEffect } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { useCart } from "./CartProvider";
 
 const formatPrice = (n: number) =>
@@ -47,6 +48,7 @@ function BagIcon() {
 }
 
 export default function CartDrawer() {
+  const router = useRouter();
   const { items, count, subtotal, isOpen, closeCart, updateQty, removeItem } =
     useCart();
 
@@ -151,7 +153,10 @@ export default function CartDrawer() {
                         <CloseIcon />
                       </button>
                     </div>
-                    <p className="text-[13px] text-text-muted">{item.category}</p>
+                    <p className="text-[13px] text-text-muted">
+                      {item.category}
+                      {item.size ? ` • Size: ${item.size}` : ""}
+                    </p>
 
                     <div className="mt-auto flex items-center justify-between pt-3">
                       {/* Quantity stepper */}
@@ -196,7 +201,13 @@ export default function CartDrawer() {
               <p className="text-[12px] text-text-muted">
                 Shipping &amp; taxes calculated at checkout.
               </p>
-              <button className="w-full rounded-full bg-accent py-4 text-[14px] font-medium uppercase tracking-[0.7px] text-white transition-all hover:bg-accent-hover active:scale-[0.99]">
+              <button
+                onClick={() => {
+                  closeCart();
+                  router.push("/checkout");
+                }}
+                className="w-full rounded-full bg-accent py-4 text-[14px] font-medium uppercase tracking-[0.7px] text-white transition-all hover:bg-accent-hover active:scale-[0.99]"
+              >
                 Checkout
               </button>
               <button

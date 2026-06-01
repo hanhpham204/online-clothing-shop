@@ -1,11 +1,12 @@
 import Link from "next/link";
 
 const footerLinks = [
-  "SUSTAINABILITY",
-  "SHIPPING",
-  "RETURNS",
-  "CONTACT",
-  "PRIVACY",
+  { label: "ABOUT US", href: "/about" },
+  { label: "SUSTAINABILITY", href: "#" },
+  { label: "SHIPPING", href: "#" },
+  { label: "RETURNS", href: "#" },
+  { label: "CONTACT", href: "#" },
+  { label: "PRIVACY", href: "#" },
 ] as const;
 
 export default function Footer() {
@@ -19,11 +20,11 @@ export default function Footer() {
         <div className="flex flex-wrap items-center justify-center gap-6">
           {footerLinks.map((link) => (
             <Link
-              key={link}
-              href="#"
+              key={link.label}
+              href={link.href}
               className="whitespace-nowrap text-[12px] font-semibold uppercase tracking-[0.6px] text-text-muted transition-colors hover:text-text-main"
             >
-              {link}
+              {link.label}
             </Link>
           ))}
         </div>

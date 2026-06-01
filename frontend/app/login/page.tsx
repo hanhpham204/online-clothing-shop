@@ -2,10 +2,11 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, use } from "react";
 import { useAuth } from "../components/AuthProvider";
 import { AuthError } from "../lib/auth";
 import { getGoogleFirebaseIdToken } from "../lib/firebase";
+import { toast } from "sonner";
 
 function ArrowLeftIcon() {
   return (
@@ -59,48 +60,53 @@ function FacebookIcon() {
   );
 }
 
-export default function LoginPage() {
+export default function LoginPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ email?: string }>;
+}) {
+  const resolvedParams = use(searchParams);
+  const initialEmail = resolvedParams.email || "";
   const router = useRouter();
   const { login, loginWithGoogle } = useAuth();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [password, setPassword] = useState("");
-  const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [googleSubmitting, setGoogleSubmitting] = useState(false);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
     setSubmitting(true);
     try {
       await login(email, password);
+      toast.success("Welcome back! Signed in successfully.");
       router.push("/account");
     } catch (err) {
       if (err instanceof AuthError && err.code === "EMAIL_NOT_VERIFIED") {
+        toast.warning("Email not verified yet. Redirecting to verification...");
         router.push(`/verify-email?email=${encodeURIComponent(email)}`);
         return;
       }
-      setError(
-        err instanceof Error ? err.message : "Unable to sign in. Please try again."
-      );
+      const msg = err instanceof Error ? err.message : "Unable to sign in. Please try again.";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleGoogleLogin() {
-    setError(null);
     setGoogleSubmitting(true);
     try {
       const firebaseIdToken = await getGoogleFirebaseIdToken();
       await loginWithGoogle(firebaseIdToken);
+      toast.success("Signed in with Google successfully!");
       router.push("/account");
     } catch (err) {
-      setError(
+      const msg =
         err instanceof Error
           ? err.message
-          : "Unable to sign in with Google. Please try again."
-      );
+          : "Unable to sign in with Google. Please try again.";
+      toast.error(msg);
     } finally {
       setGoogleSubmitting(false);
     }
@@ -108,144 +114,138 @@ export default function LoginPage() {
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-primary px-6 py-16">
-      <div className="flex w-full max-w-[440px] flex-col gap-8">
-        {/* Brand & back link */}
-        <div className="flex flex-col gap-4">
-          <Link
-            href="/"
-            className="flex w-fit items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.6px] text-text-muted transition-colors hover:text-text-main"
-          >
-            <ArrowLeftIcon />
-            Back to Home
-          </Link>
-          <span className="font-jakarta text-[32px] font-semibold tracking-[-1.6px] text-[#5d5f5f]">
-            LUA LA
-          </span>
-        </div>
+    <div className="flex w-full max-w-[440px] flex-col gap-8">
+      {/* Brand & back link */}
+      <div className="flex flex-col gap-4">
+        <Link
+          href="/"
+          className="flex w-fit items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.6px] text-text-muted transition-colors hover:text-text-main"
+        >
+          <ArrowLeftIcon />
+          Back to Home
+        </Link>
+        <span className="font-jakarta text-[32px] font-semibold tracking-[-1.6px] text-[#5d5f5f]">
+          LUA LA
+        </span>
+      </div>
 
-        {/* Headings */}
-        <div className="flex flex-col gap-[7px]">
-          <h1 className="font-jakarta text-[24px] font-semibold leading-[1.3] text-text-main">
-            Welcome Back
-          </h1>
-          <p className="text-[16px] leading-[1.6] text-text-muted">
-            Sign in to continue shopping your favorite styles.
-          </p>
-        </div>
-
-        {/* Form */}
-        <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-lg border border-[#f0c0c0] bg-[#fbeaea] px-4 py-3 text-[14px] text-[#a13a3a]"
-            >
-              {error}
-            </p>
-          ) : null}
-          <div className="flex flex-col gap-4">
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="email" className="sr-only">
-                Email address
-              </label>
-              <input
-                id="email"
-                name="email"
-                type="email"
-                required
-                autoComplete="email"
-                placeholder="Email address"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                className="w-full rounded-lg border border-border-soft bg-neutral-bg px-4 py-3.5 text-[16px] text-text-main placeholder:text-[rgba(68,71,72,0.6)] focus:border-accent focus:bg-primary focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-            </div>
-            <div className="flex flex-col gap-1.5">
-              <label htmlFor="password" className="sr-only">
-                Password
-              </label>
-              <input
-                id="password"
-                name="password"
-                type="password"
-                required
-                autoComplete="current-password"
-                placeholder="Password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full rounded-lg border border-border-soft bg-neutral-bg px-4 py-3.5 text-[16px] text-text-main placeholder:text-[rgba(68,71,72,0.6)] focus:border-accent focus:bg-primary focus:outline-none focus:ring-1 focus:ring-accent"
-              />
-            </div>
-          </div>
-
-          {/* Remember & Forgot */}
-          <div className="flex items-center justify-between">
-            <label className="flex cursor-pointer items-center gap-2 text-[14px] text-text-muted">
-              <input
-                type="checkbox"
-                name="remember"
-                className="size-4 rounded border-[#747878] bg-neutral-bg accent-accent"
-              />
-              Remember me
-            </label>
-            <Link
-              href="#"
-              className="text-[14px] text-accent transition-colors hover:text-accent-hover"
-            >
-              Forgot password?
-            </Link>
-          </div>
-
-          {/* Sign in */}
-          <button
-            type="submit"
-            disabled={submitting || googleSubmitting}
-            className="w-full rounded-lg bg-accent py-4 text-[14px] font-medium uppercase tracking-[0.7px] text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition-all hover:bg-accent-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            {submitting ? "Signing in…" : "Sign In"}
-          </button>
-        </form>
-
-        {/* Divider */}
-        <div className="flex items-center gap-4">
-          <span className="h-px flex-1 bg-[rgba(196,199,200,0.5)]" />
-          <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-text-muted">
-            Or continue with
-          </span>
-          <span className="h-px flex-1 bg-[rgba(196,199,200,0.5)]" />
-        </div>
-
-        {/* Social logins */}
-        <div className="grid grid-cols-2 gap-4">
-          <button
-            type="button"
-            onClick={handleGoogleLogin}
-            disabled={submitting || googleSubmitting}
-            className="flex items-center justify-center gap-3 rounded-lg border border-border-soft bg-primary py-3 text-[14px] font-medium tracking-[0.14px] text-text-main transition-colors hover:bg-neutral-bg disabled:cursor-not-allowed disabled:opacity-60"
-          >
-            <GoogleIcon />
-            {googleSubmitting ? "Connecting..." : "Google"}
-          </button>
-          <button
-            type="button"
-            className="flex items-center justify-center gap-3 rounded-lg border border-border-soft bg-primary py-3 text-[14px] font-medium tracking-[0.14px] text-text-main transition-colors hover:bg-neutral-bg"
-          >
-            <FacebookIcon />
-            Facebook
-          </button>
-        </div>
-
-        {/* Footer link */}
-        <p className="pt-[15px] text-center text-[16px] text-text-muted">
-          Don&apos;t have an account?{" "}
-          <Link
-            href="/register"
-            className="font-semibold text-accent transition-colors hover:text-accent-hover"
-          >
-            Create Account
-          </Link>
+      {/* Headings */}
+      <div className="flex flex-col gap-[7px]">
+        <h1 className="font-jakarta text-[24px] font-semibold leading-[1.3] text-text-main">
+          Welcome Back
+        </h1>
+        <p className="text-[16px] leading-[1.6] text-text-muted">
+          Sign in to continue shopping your favorite styles.
         </p>
       </div>
+
+      {/* Form */}
+      <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
+        <div className="flex flex-col gap-4">
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="email" className="sr-only">
+              Email address
+            </label>
+            <input
+              id="email"
+              name="email"
+              type="email"
+              required
+              autoComplete="email"
+              placeholder="example@gmail.com"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="w-full rounded-lg border border-border-soft bg-neutral-bg px-4 py-3.5 text-[16px] text-text-main placeholder:text-[rgba(68,71,72,0.6)] focus:border-accent focus:bg-primary focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+          <div className="flex flex-col gap-1.5">
+            <label htmlFor="password" className="sr-only">
+              Password
+            </label>
+            <input
+              id="password"
+              name="password"
+              type="password"
+              required
+              autoComplete="current-password"
+              placeholder="Password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full rounded-lg border border-border-soft bg-neutral-bg px-4 py-3.5 text-[16px] text-text-main placeholder:text-[rgba(68,71,72,0.6)] focus:border-accent focus:bg-primary focus:outline-none focus:ring-1 focus:ring-accent"
+            />
+          </div>
+        </div>
+
+        {/* Remember & Forgot */}
+        <div className="flex items-center justify-between">
+          <label className="flex cursor-pointer items-center gap-2 text-[14px] text-text-muted">
+            <input
+              type="checkbox"
+              name="remember"
+              className="size-4 rounded border-[#747878] bg-neutral-bg accent-accent"
+            />
+            Remember me
+          </label>
+          <Link
+            href="/forgot-password"
+            className="text-[14px] text-accent transition-colors hover:text-accent-hover"
+          >
+            Forgot password?
+          </Link>
+        </div>
+
+        {/* Sign in */}
+        <button
+          type="submit"
+          disabled={submitting || googleSubmitting}
+          className="w-full rounded-lg bg-accent py-4 text-[14px] font-medium uppercase tracking-[0.7px] text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition-all hover:bg-accent-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {submitting ? "Signing in…" : "Sign In"}
+        </button>
+      </form>
+
+      {/* Divider */}
+      <div className="flex items-center gap-4">
+        <span className="h-px flex-1 bg-[rgba(196,199,200,0.5)]" />
+        <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-text-muted">
+          Or continue with
+        </span>
+        <span className="h-px flex-1 bg-[rgba(196,199,200,0.5)]" />
+      </div>
+
+      {/* Social logins */}
+      <div className="grid grid-cols-1 gap-4">
+        <button
+          type="button"
+          onClick={handleGoogleLogin}
+          disabled={submitting || googleSubmitting}
+          className="flex items-center justify-center gap-3 rounded-lg border border-border-soft bg-primary py-3 text-[14px] font-medium tracking-[0.14px] text-text-main transition-colors hover:bg-neutral-bg disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          <GoogleIcon />
+          {googleSubmitting ? "Connecting..." : "Google"}
+        </button>
+        {/* <button
+          type="button"
+          className="flex items-center justify-center gap-3 rounded-lg border border-border-soft bg-primary py-3 text-[14px] font-medium tracking-[0.14px] text-text-main transition-colors hover:bg-neutral-bg"
+        >
+          <FacebookIcon />
+          Facebook
+        </button> */}
+      </div>
+
+      {/* Footer link */}
+      <p className="pt-[15px] text-center text-[16px] text-text-muted">
+        Don&apos;t have an account?{" "}
+        <Link
+          href="/register"
+          className="font-semibold text-accent transition-colors hover:text-accent-hover"
+        >
+          Create Account
+        </Link>
+      </p>
     </div>
+  </div>
   );
+  
+
 }

@@ -2,8 +2,9 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useAuth } from "../components/AuthProvider";
+import { toast } from "sonner";
 
 function ArrowLeftIcon() {
   return (
@@ -28,39 +29,45 @@ export default function VerifyEmailForm({
   const { verifyOtp, resendOtp } = useAuth();
   const [email, setEmail] = useState(initialEmail);
   const [otp, setOtp] = useState("");
-  const [error, setError] = useState<string | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [resending, setResending] = useState(false);
+  const [resendCooldown, setResendCooldown] = useState(0);
+
+  // Bộ đếm ngược cooldown 30s
+  useEffect(() => {
+    if (resendCooldown <= 0) return;
+    const timer = setInterval(() => {
+      setResendCooldown((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(timer);
+  }, [resendCooldown]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setError(null);
-    setNotice(null);
     setSubmitting(true);
     try {
       await verifyOtp(email, otp);
-      router.push("/login?verified=1");
+      toast.success("Email verified successfully! You can now sign in.");
+      router.push(`/login?email=${encodeURIComponent(email)}&verified=1`);
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Verification failed. Please try again."
-      );
+      const msg = err instanceof Error ? err.message : "Verification failed. Please try again.";
+      toast.error(msg);
     } finally {
       setSubmitting(false);
     }
   }
 
   async function handleResend() {
-    setError(null);
-    setNotice(null);
+    if (resendCooldown > 0) return;
     setResending(true);
     try {
       await resendOtp(email);
-      setNotice("A new verification code has been sent to your email.");
+      const msg = "A new verification code has been sent to your email.";
+      toast.success(msg);
+      setResendCooldown(30); // thiết lập cooldown 30 giây
     } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Could not resend the code. Please try again."
-      );
+      const msg = err instanceof Error ? err.message : "Could not resend the code. Please try again.";
+      toast.error(msg);
     } finally {
       setResending(false);
     }
@@ -93,19 +100,6 @@ export default function VerifyEmailForm({
         </div>
 
         <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
-          {error ? (
-            <p
-              role="alert"
-              className="rounded-lg border border-[#f0c0c0] bg-[#fbeaea] px-4 py-3 text-[14px] text-[#a13a3a]"
-            >
-              {error}
-            </p>
-          ) : null}
-          {notice ? (
-            <p className="rounded-lg border border-[#cfe3cf] bg-[#eef6ee] px-4 py-3 text-[14px] text-[#3a6b3a]">
-              {notice}
-            </p>
-          ) : null}
           <div className="flex flex-col gap-4">
             <div className="flex flex-col gap-1.5">
               <label htmlFor="email" className="sr-only">
@@ -158,10 +152,14 @@ export default function VerifyEmailForm({
           <button
             type="button"
             onClick={handleResend}
-            disabled={resending}
+            disabled={resending || resendCooldown > 0}
             className="font-semibold text-accent transition-colors hover:text-accent-hover disabled:cursor-not-allowed disabled:opacity-60"
           >
-            {resending ? "Sending…" : "Resend code"}
+            {resending
+              ? "Sending…"
+              : resendCooldown > 0
+              ? `Resend in ${resendCooldown}s`
+              : "Resend code"}
           </button>
         </p>
       </div>

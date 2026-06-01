@@ -15,20 +15,12 @@ import {
   type AuthUser,
   type RegisterResponse,
 } from "../lib/auth";
-import { userApi, type UserProfile } from "../lib/user";
-
-const STORAGE_KEY = "luala.auth";
+// No longer importing userApi because user profiles are unified under auth-service.
 
 export type CurrentUser = AuthUser & {
   fullName: string;
   phone: string | null;
   address: string | null;
-};
-
-type StoredAuth = {
-  user: CurrentUser;
-  accessToken: string;
-  refreshToken: string;
 };
 
 type AuthContextValue = {
@@ -47,50 +39,21 @@ type AuthContextValue = {
   verifyOtp: (email: string, otp: string) => Promise<void>;
   resendOtp: (email: string) => Promise<void>;
   logout: () => Promise<void>;
-  getAccessToken: () => string | null;
+  updateProfile: (profileData: { fullName?: string; phone?: string; address?: string; gender?: string }) => Promise<void>;
 };
 
 const AuthContext = createContext<AuthContextValue | null>(null);
 
-function readStored(): StoredAuth | null {
-  if (typeof window === "undefined") return null;
-  try {
-    const raw = window.localStorage.getItem(STORAGE_KEY);
-    return raw ? (JSON.parse(raw) as StoredAuth) : null;
-  } catch {
-    return null;
-  }
-}
-
-function mergeAuthUser(data: AuthResponse, profile?: UserProfile): CurrentUser {
+function mergeAuthUser(data: AuthUser): CurrentUser {
   return {
     userId: data.userId,
     email: data.email,
-    name: profile?.fullName || data.name,
-    fullName: profile?.fullName || data.name,
-    phone: profile?.phone ?? null,
-    address: profile?.address ?? null,
-    role: profile?.role || data.role,
-  };
-}
-
-function mergeStoredUser(user: CurrentUser, profile: UserProfile): CurrentUser {
-  return {
-    ...user,
-    name: profile.fullName || user.name,
-    fullName: profile.fullName || user.fullName || user.name,
-    phone: profile.phone ?? null,
-    address: profile.address ?? null,
-    role: profile.role || user.role,
-  };
-}
-
-async function refreshStoredSession(stored: StoredAuth): Promise<StoredAuth> {
-  const refreshed = await authApi.refresh(stored.refreshToken);
-  return {
-    user: mergeAuthUser(refreshed),
-    accessToken: refreshed.accessToken,
-    refreshToken: refreshed.refreshToken,
+    name: data.name,
+    fullName: data.name,
+    phone: data.phone ?? null,
+    address: data.address ?? null,
+    role: data.role || "USER",
+    gender: data.gender ?? null,
   };
 }
 
@@ -104,113 +67,49 @@ export default function AuthProvider({
   const [userLoading, setUserLoading] = useState(false);
   const [userError, setUserError] = useState<string | null>(null);
 
-  useEffect(() => {
-    let active = true;
-    async function hydrateUser() {
-      const stored = readStored();
-      if (!stored?.user || !stored.accessToken) {
-        if (active) setLoading(false);
-        return;
-      }
-
-      if (active) {
-        setUser(stored.user);
-        setUserLoading(true);
-        setUserError(null);
-      }
-
-      try {
-        let session = stored;
-        let profile: UserProfile;
-        try {
-          profile = await userApi.getProfile(
-            session.user.userId,
-            session.accessToken
-          );
-        } catch (err) {
-          if (!(err instanceof AuthError) || err.status !== 401) {
-            throw err;
-          }
-          session = await refreshStoredSession(session);
-          profile = await userApi.getProfile(
-            session.user.userId,
-            session.accessToken
-          );
-        }
-        if (!active) return;
-        const nextUser = mergeStoredUser(session.user, profile);
-        const payload: StoredAuth = { ...session, user: nextUser };
-        window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-        setUser(nextUser);
-      } catch (err) {
-        if (!active) return;
-        if (err instanceof AuthError && err.status === 401) {
-          window.localStorage.removeItem(STORAGE_KEY);
-          setUser(null);
-        }
-        setUserError(
-          err instanceof Error ? err.message : "Unable to load user profile."
-        );
-      } finally {
-        if (active) {
-          setUserLoading(false);
-          setLoading(false);
-        }
-      }
-    }
-
-    hydrateUser();
-    return () => {
-      active = false;
-    };
-  }, []);
-
-  const persist = useCallback(async (data: AuthResponse) => {
+  const loadUser = useCallback(async () => {
     setUserLoading(true);
     setUserError(null);
     try {
-      const profile = await userApi.getProfile(data.userId, data.accessToken);
-      const nextUser = mergeAuthUser(data, profile);
-      const payload: StoredAuth = {
-        user: nextUser,
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-      };
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      setUser(nextUser);
+      const { user: authUser } = await authApi.me();
+      if (authUser) {
+        setUser(mergeAuthUser(authUser));
+      }
     } catch (err) {
-      const nextUser = mergeAuthUser(data);
-      const payload: StoredAuth = {
-        user: nextUser,
-        accessToken: data.accessToken,
-        refreshToken: data.refreshToken,
-      };
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify(payload));
-      setUser(nextUser);
-      setUserError(
-        err instanceof Error ? err.message : "Unable to load user profile."
-      );
+      setUser(null);
+      if (err instanceof AuthError && err.status === 401) {
+        // Not authenticated
+      } else {
+        setUserError(
+          err instanceof Error ? err.message : "Unable to load user profile."
+        );
+      }
     } finally {
       setUserLoading(false);
+      setLoading(false);
     }
   }, []);
+
+  useEffect(() => {
+    loadUser();
+  }, [loadUser]);
 
   const login = useCallback(
     async (email: string, password: string) => {
       const data = await authApi.login(email, password);
-      await persist(data);
+      await loadUser();
       return data;
     },
-    [persist]
+    [loadUser]
   );
 
   const loginWithGoogle = useCallback(
     async (firebaseIdToken: string) => {
       const data = await authApi.google(firebaseIdToken);
-      await persist(data);
+      await loadUser();
       return data;
     },
-    [persist]
+    [loadUser]
   );
 
   const register = useCallback(
@@ -228,20 +127,28 @@ export default function AuthProvider({
   }, []);
 
   const logout = useCallback(async () => {
-    const stored = readStored();
-    if (stored?.refreshToken) {
-      try {
-        await authApi.logout(stored.refreshToken);
-      } catch {
-        // Logout is best-effort; clear local session regardless.
-      }
+    try {
+      await authApi.logout();
+    } catch {
+      // Logout is best-effort
     }
-    window.localStorage.removeItem(STORAGE_KEY);
     setUser(null);
     setUserError(null);
   }, []);
 
-  const getAccessToken = useCallback(() => readStored()?.accessToken ?? null, []);
+  const updateProfile = useCallback(async (profileData: { fullName?: string; phone?: string; address?: string; gender?: string }) => {
+    setUserLoading(true);
+    setUserError(null);
+    try {
+      const res = await authApi.updateProfile(profileData);
+      setUser(mergeAuthUser(res.user));
+    } catch (err) {
+      setUserError(err instanceof Error ? err.message : "Unable to update profile.");
+      throw err;
+    } finally {
+      setUserLoading(false);
+    }
+  }, []);
 
   const value = useMemo<AuthContextValue>(
     () => ({
@@ -256,7 +163,7 @@ export default function AuthProvider({
       verifyOtp,
       resendOtp,
       logout,
-      getAccessToken,
+      updateProfile,
     }),
     [
       user,
@@ -269,7 +176,7 @@ export default function AuthProvider({
       verifyOtp,
       resendOtp,
       logout,
-      getAccessToken,
+      updateProfile,
     ]
   );
 

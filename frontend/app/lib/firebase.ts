@@ -45,9 +45,6 @@ export async function getGoogleFirebaseIdToken(): Promise<string> {
   const provider = new GoogleAuthProvider();
   provider.setCustomParameters({ prompt: "select_account" });
   const result = await signInWithPopup(getFirebaseAuth(), provider);
-  const credential = GoogleAuthProvider.credentialFromResult(result);
-  if (!credential || !credential.idToken) {
-    throw new Error("Unable to retrieve Google ID token from Firebase.");
-  }
-  return credential.idToken;
+  const token = await result.user.getIdToken();
+  return token;
 }

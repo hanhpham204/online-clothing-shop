@@ -1,8 +1,0 @@
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\payment-service\src\main\java\vn\edu\iuh\fit\payment\config\RabbitConfig.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\payment-service\src\main\java\vn\edu\iuh\fit\payment\controller\PaymentController.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\payment-service\src\main\java\vn\edu\iuh\fit\payment\domain\entity\PaymentEntity.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\payment-service\src\main\java\vn\edu\iuh\fit\payment\dto\PaymentResponse.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\payment-service\src\main\java\vn\edu\iuh\fit\payment\exception\GlobalExceptionHandler.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\payment-service\src\main\java\vn\edu\iuh\fit\payment\PaymentServiceApplication.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\payment-service\src\main\java\vn\edu\iuh\fit\payment\repository\PaymentRepository.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\payment-service\src\main\java\vn\edu\iuh\fit\payment\service\PaymentService.java

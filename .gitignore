@@ -41,10 +41,17 @@ yarn-error.log*
 pnpm-debug.log*
 
 .env*
-
+*.env*
+stitch-assets/
 .claude*
 
 backend/firebase-service-account.json
 */firebase-service-account.json
 
 .cursor
+
+product_image_links_for_sql_agent.json
+docker-compose.legacy.yml.bak
+run-all.bat
+stop-all.bat
+AGENTS.md

@@ -3,6 +3,9 @@ import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "./components/AuthProvider";
 import CartProvider from "./components/CartProvider";
+import WishlistProvider from "./components/WishlistProvider";
+import { Toaster } from "sonner";
+import ChatbotWidget from "./components/ChatbotWidget";
 
 const geistSans = Geist({
   variable: "--font-geist-sans",
@@ -38,7 +41,13 @@ export default function RootLayout({
     >
       <body className="min-h-full flex flex-col">
         <AuthProvider>
-          <CartProvider>{children}</CartProvider>
+          <WishlistProvider>
+            <CartProvider>
+              {children}
+              <ChatbotWidget />
+              <Toaster position="top-right" richColors />
+            </CartProvider>
+          </WishlistProvider>
         </AuthProvider>
       </body>
     </html>

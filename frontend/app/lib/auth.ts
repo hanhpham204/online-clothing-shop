@@ -3,22 +3,18 @@
 // so the browser request is same-origin and avoids CORS.
 
 export type AuthUser = {
-  userId: number;
+  userId: string;
   email: string;
   name: string;
   role: string;
+  phone?: string | null;
+  address?: string | null;
+  gender?: string | null;
 };
 
+// We don't return accessToken/refreshToken anymore since they are HttpOnly cookies
 export type AuthResponse = {
-  accessToken: string;
-  refreshToken: string;
-  tokenType: string;
-  accessTokenExpiresIn: number;
-  refreshTokenExpiresIn: number;
-  userId: number;
-  email: string;
-  name: string;
-  role: string;
+  message: string;
 };
 
 export type RegisterResponse = {
@@ -42,14 +38,17 @@ export class AuthError extends Error {
 
 const BASE = "/api/auth";
 
-async function post<T>(path: string, body: unknown): Promise<T> {
+async function post<T>(path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
-    res = await fetch(`${BASE}${path}`, {
+    const options: RequestInit = {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(body),
-    });
+    };
+    if (body) {
+      options.body = JSON.stringify(body);
+    }
+    res = await fetch(`${BASE}${path}`, options);
   } catch {
     throw new AuthError(
       "Cannot reach the server. Please make sure the auth service is running.",
@@ -67,7 +66,30 @@ async function post<T>(path: string, body: unknown): Promise<T> {
     throw new AuthError(message, res.status, json?.code);
   }
 
-  // Success envelope: { success, message, data, timestamp }
+  return (json?.data ?? json) as T;
+}
+
+async function get<T>(path: string): Promise<T> {
+  let res: Response;
+  try {
+    res = await fetch(`${BASE}${path}`);
+  } catch {
+    throw new AuthError(
+      "Cannot reach the server.",
+      0,
+      "NETWORK_ERROR"
+    );
+  }
+
+  const json = await res.json().catch(() => null);
+
+  if (!res.ok) {
+    const message =
+      (json && (json.message as string)) ||
+      "Something went wrong. Please try again.";
+    throw new AuthError(message, res.status, json?.code);
+  }
+
   return (json?.data ?? json) as T;
 }
 
@@ -87,9 +109,12 @@ export const authApi = {
   google: (idToken: string) =>
     post<AuthResponse>("/google", { idToken }),
 
-  logout: (refreshToken: string) =>
-    post<MessageResponse>("/logout", { refreshToken }),
+  logout: () =>
+    post<MessageResponse>("/logout"),
 
-  refresh: (refreshToken: string) =>
-    post<AuthResponse>("/refresh", { refreshToken }),
+  me: () =>
+    get<{ user: AuthUser }>("/me"),
+
+  updateProfile: (profileData: { fullName?: string; phone?: string; address?: string; gender?: string }) =>
+    post<{ user: AuthUser; message: string }>("/profile/update", profileData),
 };

@@ -15,10 +15,10 @@ export default function Home() {
       <Header />
 
       {/* ── Hero Section ── */}
-      <main className="pt-8 px-16 max-w-[1280px] mx-auto">
-        <div className="grid grid-cols-12 gap-6 py-12">
+      <main className="pt-8 px-6 md:px-16 max-w-[1280px] mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-12 py-6 md:py-12">
           {/* Left: Copy & CTAs */}
-          <div className="col-span-5 flex flex-col gap-8 justify-center self-center">
+          <div className="col-span-1 md:col-span-5 flex flex-col gap-8 justify-center self-center">
             {/* Text block */}
             <div className="flex flex-col gap-[22.8px]">
               {/* Season badge */}
@@ -30,7 +30,7 @@ export default function Home() {
 
               {/* Heading */}
               <h1
-                className="text-[#1a1c19] text-[48px] font-bold tracking-[-0.96px] leading-[1.1] font-jakarta"
+                className="text-[#1a1c19] text-[36px] sm:text-[48px] font-bold tracking-[-0.96px] leading-[1.1] font-jakarta"
               >
                 Style for
                 <br />
@@ -96,10 +96,10 @@ export default function Home() {
 
           {/* Right: Fashion photo — stays self-stretch so it never exceeds the
               image's native size and avoids upscaling/blur */}
-          <div className="col-span-7 self-stretch max-h-[1008px] relative rounded-[32px] overflow-hidden shadow-[0px_10px_40px_-10px_rgba(111,89,89,0.05)]">
+          <div className="col-span-1 md:col-span-7 self-stretch min-h-[350px] md:min-h-[500px] lg:max-h-[1008px] relative rounded-[32px] overflow-hidden shadow-[0px_10px_40px_-10px_rgba(111,89,89,0.05)]">
             {/* Hero image */}
             <Image
-              src="/hero_img.png"
+              src="/hero_img.webp"
               alt="Fashion collection — model wearing LUA LA styles"
               fill
               sizes="(max-width: 768px) 100vw, 58vw"

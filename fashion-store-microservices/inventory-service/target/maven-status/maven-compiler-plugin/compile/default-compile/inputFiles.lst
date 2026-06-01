@@ -1,8 +1,0 @@
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\inventory-service\src\main\java\vn\edu\iuh\fit\inventory\config\RabbitConfig.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\inventory-service\src\main\java\vn\edu\iuh\fit\inventory\controller\InventoryController.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\inventory-service\src\main\java\vn\edu\iuh\fit\inventory\domain\entity\InventoryStock.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\inventory-service\src\main\java\vn\edu\iuh\fit\inventory\dto\StockResponse.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\inventory-service\src\main\java\vn\edu\iuh\fit\inventory\exception\GlobalExceptionHandler.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\inventory-service\src\main\java\vn\edu\iuh\fit\inventory\InventoryServiceApplication.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\inventory-service\src\main\java\vn\edu\iuh\fit\inventory\repository\InventoryRepository.java
-D:\HOC\NAM4\online-clothing-shop\fashion-store-microservices\inventory-service\src\main\java\vn\edu\iuh\fit\inventory\service\InventoryService.java
