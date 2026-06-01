@@ -24,7 +24,7 @@ function ArrowLeftIcon() {
 
 function GoogleIcon() {
   return (
-    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
+    <svg width="18" height="18" viewBox="0 0 20 20" aria-hidden="true">
       <path
         d="M19.6 10.23c0-.68-.06-1.36-.18-2.03H10v3.85h5.4a4.6 4.6 0 01-2 3.02v2.5h3.23c1.89-1.74 2.97-4.3 2.97-7.34z"
         fill="#4285F4"
@@ -40,21 +40,6 @@ function GoogleIcon() {
       <path
         d="M10 3.96c1.47 0 2.79.51 3.82 1.5l2.86-2.86A10 10 0 001.07 5.51L4.4 8.1C5.19 5.73 7.4 3.96 10 3.96z"
         fill="#EA4335"
-      />
-    </svg>
-  );
-}
-
-function FacebookIcon() {
-  return (
-    <svg width="20" height="20" viewBox="0 0 20 20" aria-hidden="true">
-      <path
-        d="M20 10a10 10 0 10-11.56 9.88v-6.99H5.9V10h2.54V7.8c0-2.5 1.49-3.89 3.78-3.89 1.09 0 2.24.2 2.24.2v2.46h-1.26c-1.24 0-1.63.77-1.63 1.56V10h2.78l-.44 2.89h-2.34v6.99A10 10 0 0020 10z"
-        fill="#1877F2"
-      />
-      <path
-        d="M13.89 12.89L14.33 10h-2.78V8.13c0-.79.39-1.56 1.63-1.56h1.26V4.11s-1.15-.2-2.24-.2c-2.29 0-3.78 1.39-3.78 3.89V10H5.9v2.89h2.54v6.99a10.07 10.07 0 003.12 0v-6.99h2.34z"
-        fill="#fff"
       />
     </svg>
   );
@@ -113,36 +98,38 @@ export default function LoginPage({
   }
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-primary px-6 py-16">
-    <div className="flex w-full max-w-[440px] flex-col gap-8">
-      {/* Brand & back link */}
-      <div className="flex flex-col gap-4">
-        <Link
-          href="/"
-          className="flex w-fit items-center gap-2 text-[12px] font-semibold uppercase tracking-[0.6px] text-text-muted transition-colors hover:text-text-main"
-        >
-          <ArrowLeftIcon />
-          Back to Home
-        </Link>
-        <span className="font-jakarta text-[32px] font-semibold tracking-[-1.6px] text-[#5d5f5f]">
-          LUA LA
-        </span>
-      </div>
+    // h-dvh + overflow-hidden = no page scroll. The inner card uses
+    // max-h-full + overflow-y-auto as a safety net for ultra-short viewports
+    // (e.g. tiny mobile windows), but on any normal screen everything fits.
+    <div className="flex h-dvh w-full items-center justify-center overflow-hidden bg-primary px-4 py-6 sm:px-6 sm:py-8">
+      <div className="flex max-h-full w-full max-w-[420px] flex-col gap-6 overflow-y-auto py-2">
+        {/* Brand on top, back link directly underneath */}
+        <div className="flex flex-col gap-2.5">
+          <span className="font-jakarta text-[26px] font-semibold leading-none tracking-[-1.3px] text-[#5d5f5f]">
+            LUA LA
+          </span>
+          <Link
+            href="/"
+            className="flex w-fit items-center gap-1.5 text-[12px] font-semibold uppercase tracking-[0.6px] text-text-muted transition-colors hover:text-text-main"
+          >
+            <ArrowLeftIcon />
+            Back to Home
+          </Link>
+        </div>
 
-      {/* Headings */}
-      <div className="flex flex-col gap-[7px]">
-        <h1 className="font-jakarta text-[24px] font-semibold leading-[1.3] text-text-main">
-          Welcome Back
-        </h1>
-        <p className="text-[16px] leading-[1.6] text-text-muted">
-          Sign in to continue shopping your favorite styles.
-        </p>
-      </div>
+        {/* Heading */}
+        <div className="flex flex-col gap-2">
+          <h1 className="font-jakarta text-[24px] font-semibold leading-tight text-text-main">
+            Welcome Back
+          </h1>
+          <p className="text-[15px] leading-relaxed text-text-muted">
+            Sign in to continue shopping your favorite styles.
+          </p>
+        </div>
 
-      {/* Form */}
-      <form className="flex flex-col gap-6" onSubmit={handleSubmit} noValidate>
-        <div className="flex flex-col gap-4">
-          <div className="flex flex-col gap-1.5">
+        {/* Form */}
+        <form className="flex flex-col gap-5" onSubmit={handleSubmit} noValidate>
+          <div className="flex flex-col gap-3.5">
             <label htmlFor="email" className="sr-only">
               Email address
             </label>
@@ -155,10 +142,8 @@ export default function LoginPage({
               placeholder="example@gmail.com"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full rounded-lg border border-border-soft bg-neutral-bg px-4 py-3.5 text-[16px] text-text-main placeholder:text-[rgba(68,71,72,0.6)] focus:border-accent focus:bg-primary focus:outline-none focus:ring-1 focus:ring-accent"
+              className="w-full rounded-lg border border-border-soft bg-neutral-bg px-4 py-3 text-[15px] text-text-main placeholder:text-[rgba(68,71,72,0.6)] focus:border-accent focus:bg-primary focus:outline-none focus:ring-1 focus:ring-accent"
             />
-          </div>
-          <div className="flex flex-col gap-1.5">
             <label htmlFor="password" className="sr-only">
               Password
             </label>
@@ -171,81 +156,67 @@ export default function LoginPage({
               placeholder="Password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full rounded-lg border border-border-soft bg-neutral-bg px-4 py-3.5 text-[16px] text-text-main placeholder:text-[rgba(68,71,72,0.6)] focus:border-accent focus:bg-primary focus:outline-none focus:ring-1 focus:ring-accent"
+              className="w-full rounded-lg border border-border-soft bg-neutral-bg px-4 py-3 text-[15px] text-text-main placeholder:text-[rgba(68,71,72,0.6)] focus:border-accent focus:bg-primary focus:outline-none focus:ring-1 focus:ring-accent"
             />
           </div>
-        </div>
 
-        {/* Remember & Forgot */}
-        <div className="flex items-center justify-between">
-          <label className="flex cursor-pointer items-center gap-2 text-[14px] text-text-muted">
-            <input
-              type="checkbox"
-              name="remember"
-              className="size-4 rounded border-[#747878] bg-neutral-bg accent-accent"
-            />
-            Remember me
-          </label>
-          <Link
-            href="/forgot-password"
-            className="text-[14px] text-accent transition-colors hover:text-accent-hover"
+          <div className="flex items-center justify-between">
+            <label className="flex cursor-pointer items-center gap-2 text-[13px] text-text-muted">
+              <input
+                type="checkbox"
+                name="remember"
+                className="size-4 rounded border-[#747878] bg-neutral-bg accent-accent"
+              />
+              Remember me
+            </label>
+            <Link
+              href="/forgot-password"
+              className="text-[13px] text-accent transition-colors hover:text-accent-hover"
+            >
+              Forgot password?
+            </Link>
+          </div>
+
+          <button
+            type="submit"
+            disabled={submitting || googleSubmitting}
+            className="mt-1 w-full rounded-lg bg-accent py-3.5 text-[13px] font-medium uppercase tracking-[0.7px] text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition-all hover:bg-accent-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
           >
-            Forgot password?
-          </Link>
+            {submitting ? "Signing in…" : "Sign In"}
+          </button>
+        </form>
+
+        {/* Divider */}
+        <div className="flex items-center gap-3">
+          <span className="h-px flex-1 bg-[rgba(196,199,200,0.5)]" />
+          <span className="text-[11px] font-semibold uppercase tracking-[0.6px] text-text-muted">
+            Or continue with
+          </span>
+          <span className="h-px flex-1 bg-[rgba(196,199,200,0.5)]" />
         </div>
 
-        {/* Sign in */}
-        <button
-          type="submit"
-          disabled={submitting || googleSubmitting}
-          className="w-full rounded-lg bg-accent py-4 text-[14px] font-medium uppercase tracking-[0.7px] text-white shadow-[0px_1px_2px_0px_rgba(0,0,0,0.05)] transition-all hover:bg-accent-hover active:scale-[0.99] disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {submitting ? "Signing in…" : "Sign In"}
-        </button>
-      </form>
-
-      {/* Divider */}
-      <div className="flex items-center gap-4">
-        <span className="h-px flex-1 bg-[rgba(196,199,200,0.5)]" />
-        <span className="text-[12px] font-semibold uppercase tracking-[0.6px] text-text-muted">
-          Or continue with
-        </span>
-        <span className="h-px flex-1 bg-[rgba(196,199,200,0.5)]" />
-      </div>
-
-      {/* Social logins */}
-      <div className="grid grid-cols-1 gap-4">
+        {/* Social logins */}
         <button
           type="button"
           onClick={handleGoogleLogin}
           disabled={submitting || googleSubmitting}
-          className="flex items-center justify-center gap-3 rounded-lg border border-border-soft bg-primary py-3 text-[14px] font-medium tracking-[0.14px] text-text-main transition-colors hover:bg-neutral-bg disabled:cursor-not-allowed disabled:opacity-60"
+          className="flex items-center justify-center gap-2.5 rounded-lg border border-border-soft bg-primary py-3 text-[14px] font-medium tracking-[0.14px] text-text-main transition-colors hover:bg-neutral-bg disabled:cursor-not-allowed disabled:opacity-60"
         >
           <GoogleIcon />
-          {googleSubmitting ? "Connecting..." : "Google"}
+          {googleSubmitting ? "Connecting..." : "Continue with Google"}
         </button>
-        {/* <button
-          type="button"
-          className="flex items-center justify-center gap-3 rounded-lg border border-border-soft bg-primary py-3 text-[14px] font-medium tracking-[0.14px] text-text-main transition-colors hover:bg-neutral-bg"
-        >
-          <FacebookIcon />
-          Facebook
-        </button> */}
+
+        {/* Footer link */}
+        <p className="text-center text-[14px] text-text-muted">
+          Don&apos;t have an account?{" "}
+          <Link
+            href="/register"
+            className="font-semibold text-accent transition-colors hover:text-accent-hover"
+          >
+            Create Account
+          </Link>
+        </p>
       </div>
-
-      {/* Footer link */}
-      <p className="pt-[15px] text-center text-[16px] text-text-muted">
-        Don&apos;t have an account?{" "}
-        <Link
-          href="/register"
-          className="font-semibold text-accent transition-colors hover:text-accent-hover"
-        >
-          Create Account
-        </Link>
-      </p>
     </div>
-  </div>
   );
-  
-
 }

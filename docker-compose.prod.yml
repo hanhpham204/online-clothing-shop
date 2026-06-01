@@ -1,0 +1,106 @@
+version: '3.8'
+
+services:
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: fashion-user-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./user-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8081
+      - EMAIL_SERVICE_URL=http://email-service:8087
+    networks:
+      - appnet
+
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: fashion-product-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    env_file:
+      - ./product-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8083
+    networks:
+      - appnet
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: fashion-order-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    env_file:
+      - ./order-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8084
+      - PAYMENT_SERVICE_URL=http://payment-service:8085
+    networks:
+      - appnet
+
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: fashion-payment-service
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    env_file:
+      - ./payment-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8085
+      - ORDER_SERVICE_URL=http://order-service:8084
+    networks:
+      - appnet
+
+  email-service:
+    build:
+      context: ./email-service
+      dockerfile: Dockerfile
+    container_name: fashion-email-service
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    env_file:
+      - ./email-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8087
+      - USER_SERVICE_URL=http://user-service:8081
+    networks:
+      - appnet
+
+  chat-bot-service:
+    build:
+      context: ./chat-bot-service
+      dockerfile: Dockerfile
+    container_name: fashion-chat-bot-service
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    env_file:
+      - ./chat-bot-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8088
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge

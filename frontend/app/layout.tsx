@@ -1,4 +1,4 @@
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Geist, Geist_Mono, Plus_Jakarta_Sans } from "next/font/google";
 import "./globals.css";
 import AuthProvider from "./components/AuthProvider";
@@ -24,9 +24,18 @@ const plusJakartaSans = Plus_Jakarta_Sans({
 });
 
 export const metadata: Metadata = {
-  title: "LUA LA — Style for Every Generation",
+  title: "LUA LA Fashion Store",
   description:
     "Discover soft, elegant, and modern fashion for women, men, and kids — designed for comfort, confidence, and everyday charm.",
+};
+
+// viewportFit "cover" lets the page render under iOS notches / home-indicator
+// areas, which is required for `env(safe-area-inset-*)` to return non-zero
+// values for fixed UI like the floating chat bubble.
+export const viewport: Viewport = {
+  width: "device-width",
+  initialScale: 1,
+  viewportFit: "cover",
 };
 
 export default function RootLayout({
@@ -45,7 +54,9 @@ export default function RootLayout({
             <CartProvider>
               {children}
               <ChatbotWidget />
-              <Toaster position="top-right" richColors />
+              {/* Bottom-left keeps toasts clear of both the sticky header
+                  (top) and the floating chat bubble (bottom-right). */}
+              <Toaster position="bottom-left" richColors closeButton />
             </CartProvider>
           </WishlistProvider>
         </AuthProvider>

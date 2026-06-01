@@ -101,7 +101,7 @@ export default function AboutPage() {
 
           <div className="lg:col-span-7 h-[400px] sm:h-[500px] lg:h-[550px] relative rounded-[24px] overflow-hidden shadow-[0px_8px_30px_rgba(111,89,89,0.05)]">
             <Image
-              src="/about_img.png"
+              src="/about_img.webp"
               alt="LUA LA brand representation - family portrait"
               fill
               sizes="(max-width: 1024px) 100vw, 55vw"
@@ -117,7 +117,7 @@ export default function AboutPage() {
         <section id="our-story" className="grid grid-cols-1 lg:grid-cols-2 gap-16 items-center scroll-mt-24">
           <div className="relative rounded-[24px] overflow-hidden shadow-[0px_6px_24px_rgba(111,89,89,0.04)] h-[350px] sm:h-[450px] lg:h-[500px]">
             <Image
-              src="/contact_img.png"
+              src="/contact_img.webp"
               alt="Minimalist indoor space style"
               fill
               sizes="(max-width: 1024px) 100vw, 45vw"

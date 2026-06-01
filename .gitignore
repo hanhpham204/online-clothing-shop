@@ -55,3 +55,6 @@ docker-compose.legacy.yml.bak
 run-all.bat
 stop-all.bat
 AGENTS.md
+.cursor/
+PLAN.md
+docker-compose.legacy.yml.bak
