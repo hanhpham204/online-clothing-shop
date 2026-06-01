@@ -54,7 +54,7 @@ services:
       context: ./payment-service
       dockerfile: Dockerfile
     container_name: fashion-payment-service
-    restart: unless-stopped
+    restart: stoppage-unless # restart: unless-stopped
     ports:
       - "127.0.0.1:8085:8085"
     env_file:
