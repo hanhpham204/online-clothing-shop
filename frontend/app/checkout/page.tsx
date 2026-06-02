@@ -2,12 +2,10 @@
 
 import React, { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useCart } from "../components/CartProvider";
 import { useAuth } from "../components/AuthProvider";
 import { toast } from "sonner";
 import {
-  formatVnd,
   getAccountDisplayName,
   getBankDisplayInfo,
   getPaymentQrUrl,
@@ -102,15 +100,65 @@ interface PaymentInfo {
   orderCreated?: boolean;
 }
 
+const CHECKOUT_REQUEST_TIMEOUT_MS = 15000;
+
+const getResponseErrorMessage = async (
+  response: Response,
+  fallback: string,
+  gatewayTimeoutMessage = fallback,
+) => {
+  if (response.status === 504) {
+    return gatewayTimeoutMessage;
+  }
+
+  const contentType = response.headers.get("content-type") ?? "";
+  if (contentType.includes("application/json")) {
+    const errorData = (await response.json().catch(() => null)) as
+      | { message?: string | string[] }
+      | null;
+
+    if (Array.isArray(errorData?.message)) {
+      return errorData.message.join(", ");
+    }
+    if (typeof errorData?.message === "string" && errorData.message.trim()) {
+      return errorData.message;
+    }
+  }
+
+  return fallback;
+};
+
+const fetchWithTimeout = async (
+  input: RequestInfo | URL,
+  init: RequestInit,
+  timeoutMessage: string,
+) => {
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), CHECKOUT_REQUEST_TIMEOUT_MS);
+
+  try {
+    return await fetch(input, {
+      ...init,
+      signal: controller.signal,
+    });
+  } catch (error) {
+    if (error instanceof DOMException && error.name === "AbortError") {
+      throw new Error(timeoutMessage);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timeoutId);
+  }
+};
+
 export default function CheckoutPage() {
-  const router = useRouter();
   const { items: cartItems, subtotal, clearCart } = useCart();
   const { user } = useAuth();
 
   // Form states
-  const [fullName, setFullName] = useState("");
-  const [phoneNumber, setPhoneNumber] = useState("");
-  const [shippingAddress, setShippingAddress] = useState("");
+  const [fullNameInput, setFullName] = useState<string | null>(null);
+  const [phoneNumberInput, setPhoneNumber] = useState<string | null>(null);
+  const [shippingAddressInput, setShippingAddress] = useState<string | null>(null);
   const [paymentMethod, setPaymentMethod] = useState<"COD" | "BANK_TRANSFER">("COD");
 
   // Order & UI states
@@ -118,20 +166,15 @@ export default function CheckoutPage() {
   const [createdOrder, setCreatedOrder] = useState<OrderResponse | null>(null);
   const [paymentInfo, setPaymentInfo] = useState<PaymentInfo | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const abortControllerRef = useRef<AbortController | null>(null);
 
-  useEffect(() => {
-    if (user) {
-      setFullName(user.fullName || user.name || "");
-      setPhoneNumber(user.phone || "");
-      setShippingAddress(user.address || "");
-    }
-  }, [user]);
+  const fullName = fullNameInput ?? user?.fullName ?? user?.name ?? "";
+  const phoneNumber = phoneNumberInput ?? user?.phone ?? "";
+  const shippingAddress = shippingAddressInput ?? user?.address ?? "";
 
   useEffect(() => {
     return () => {
@@ -176,9 +219,7 @@ export default function CheckoutPage() {
 
   const handleCopy = (text: string, field: string) => {
     navigator.clipboard.writeText(text);
-    setCopiedField(field);
     toast.success(`Copied ${field}`);
-    setTimeout(() => setCopiedField(null), 2000);
   };
 
   const validateForm = () => {
@@ -229,14 +270,23 @@ export default function CheckoutPage() {
       if (paymentMethod === "COD") {
         // COD path is unchanged — order-service creates the order directly,
         // then publishes order.created on the Redis Stream for email-service.
-        const response = await fetch("/api/orders", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(customerPayload),
-        });
+        const response = await fetchWithTimeout(
+          "/api/orders",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(customerPayload),
+          },
+          "Order service did not respond. Please try again in a few minutes.",
+        );
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
-          throw new Error(errorData.message || "Failed to create the order");
+          throw new Error(
+            await getResponseErrorMessage(
+              response,
+              "Failed to create the order",
+              "Order service timed out. Please try again in a few minutes.",
+            ),
+          );
         }
         const responseData = await response.json();
         setCreatedOrder(responseData.order);
@@ -248,15 +298,22 @@ export default function CheckoutPage() {
         // returns a QR. The actual Order is only created (in order-service)
         // AFTER the SePay webhook confirms the transfer — orchestrated via
         // Redis Streams.
-        const response = await fetch("/api/payments/checkout-intent", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(customerPayload),
-        });
+        const response = await fetchWithTimeout(
+          "/api/payments/checkout-intent",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(customerPayload),
+          },
+          "Payment service did not respond. Please try again later or choose Cash on Delivery.",
+        );
         if (!response.ok) {
-          const errorData = await response.json().catch(() => ({}));
           throw new Error(
-            errorData.message || "Failed to start the bank-transfer checkout",
+            await getResponseErrorMessage(
+              response,
+              "Failed to start the bank-transfer checkout",
+              "Payment service timed out. Please try again later or choose Cash on Delivery.",
+            ),
           );
         }
         const payment: PaymentInfo = await response.json();
@@ -266,8 +323,12 @@ export default function CheckoutPage() {
 
         startLongPollPaymentStatus(payment.paymentId);
       }
-    } catch (error: any) {
-      toast.error(error.message || "Something went wrong while placing your order.");
+    } catch (error: unknown) {
+      toast.error(
+        error instanceof Error
+          ? error.message
+          : "Something went wrong while placing your order.",
+      );
     } finally {
       setIsSubmitting(false);
     }
@@ -404,8 +465,8 @@ export default function CheckoutPage() {
           // If status is PENDING (timeout/long-poll closed), re-trigger wait after 1 second
           fallbackTimeoutRef.current = setTimeout(poll, 1000);
         }
-      } catch (err: any) {
-        if (err.name === "AbortError") {
+      } catch (err: unknown) {
+        if (err instanceof DOMException && err.name === "AbortError") {
           console.log("Long poll aborted.");
           return;
         }

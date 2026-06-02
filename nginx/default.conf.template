@@ -11,6 +11,11 @@ server {
     # Docker internal DNS resolver
     resolver 127.0.0.11 valid=10s;
 
+    # Fail remote upstream connectivity issues quickly so the frontend does not appear stuck.
+    proxy_connect_timeout 5s;
+    proxy_send_timeout 30s;
+    proxy_read_timeout 30s;
+
     # Dynamic upstream variables to prevent startup crashes
     set $upstream_user user-service;
     set $upstream_product product-service;
@@ -50,4 +55,3 @@ server {
         proxy_pass http://${EC2_2_IP}:8088;
     }
 }
-
