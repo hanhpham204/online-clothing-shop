@@ -1,0 +1,44 @@
+sequenceDiagram
+  autonumber
+  participant U as Customer Browser
+  participant FE as Next.js Frontend/BFF
+  participant GW as Nginx Gateway
+  participant Pay as payment-service
+  participant SePay as SePay
+  participant Redis as Redis Streams/PubSub
+  participant Order as order-service
+  participant Product as product-service
+  participant Email as email-service
+
+  U->>FE: Submit checkout BANK_TRANSFER
+  FE->>GW: POST /api/payments/checkout-intent
+  GW->>Pay: POST /payments/checkout-intent
+  Pay->>SePay: Create QR / virtual account order
+  SePay-->>Pay: QR, VA number, expiry
+  Pay-->>FE: paymentId, transferContent, QR
+  FE-->>U: Show VietQR and start payment wait
+  FE->>Redis: Subscribe payment:status:<paymentId> (long polling route)
+  SePay->>Pay: Webhook transaction received
+  Pay->>Pay: Reconcile VA/content and mark COMPLETED
+  Pay->>Redis: PUBLISH payment:status:<paymentId>
+  Pay->>Redis: XADD streams.payment.completed
+  Redis-->>Order: payment.completed consumer group
+  Order->>Order: Idempotently create order by paymentId
+  Order->>Pay: PATCH /payments/:paymentId/link-order
+  Order->>Redis: XADD streams.order.created
+  Redis-->>Product: order.created consumer group
+  Product->>Product: Reserve stock
+  alt stock available
+    Product->>Redis: XADD streams.stock.reserved
+    Redis-->>Order: stock.reserved
+    Order->>Order: Confirm order
+  else stock unavailable
+    Product->>Redis: XADD streams.stock.failed
+    Redis-->>Order: stock.failed
+    Order->>Order: Cancel order
+    Order->>Redis: XADD streams.order.cancelled
+  end
+  Redis-->>Email: order.created
+  Email->>Email: Idempotency SET NX
+  Email-->>U: Send order confirmation email
+

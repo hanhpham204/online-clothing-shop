@@ -1,0 +1,47 @@
+flowchart TB
+  Customer[Customer Browser]
+  Frontend[Container: Next.js Frontend / BFF]
+  Gateway[Container: Nginx API Gateway]
+  Redis[(Container: Redis - Streams, Pub/Sub, Cache)]
+  Mongo[(Container: MongoDB - service-owned collections)]
+
+  User[Container: user-service]
+  Product[Container: product-service]
+  Order[Container: order-service]
+  Payment[Container: payment-service]
+  Email[Container: email-service]
+  Chat[Container: chat-bot-service]
+
+  Firebase[External: Firebase Auth]
+  SePay[External: SePay API/Webhook]
+  SMTP[External: SMTP/Brevo]
+  Gemini[External: Gemini API]
+
+  Customer --> Frontend
+  Frontend -->|Next.js rewrites /api/*| Gateway
+  Gateway --> User
+  Gateway --> Product
+  Gateway --> Order
+  Gateway --> Payment
+  Gateway --> Chat
+
+  User --> Mongo
+  Product --> Mongo
+  Order --> Mongo
+  Payment --> Mongo
+  Chat --> Mongo
+
+  User -->|auth.otp.requested| Redis
+  Product <-->|cache-aside product list/detail| Redis
+  Product <-->|order.created, order.cancelled| Redis
+  Order <-->|payment.completed, stock.*, order.*| Redis
+  Payment <-->|payment.completed, order.cancelled, pub/sub payment status| Redis
+  Email <-->|auth.otp.requested, order.created, idempotency keys| Redis
+  Frontend -->|payment-wait long polling subscriber| Redis
+
+  User --> Firebase
+  Payment --> SePay
+  SePay --> Payment
+  Email --> SMTP
+  Chat --> Gemini
+

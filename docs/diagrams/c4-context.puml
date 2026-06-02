@@ -1,0 +1,24 @@
+@startuml LUA_LA_Context
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Context.puml
+
+title LUA LA Online Clothing Shop - C4 System Context
+
+Person(customer, "Customer", "Browses products, manages cart/wishlist, checks out, uses AI assistant")
+Person(admin, "Admin / Shop Operator", "Manages catalog, orders and shop operations")
+
+System(luala, "LUA LA Online Clothing Shop", "Online fashion store with checkout, payment, email notification and AI assistant")
+
+System_Ext(firebase, "Firebase Auth", "Google sign-in token provider")
+System_Ext(sepay, "SePay / VietQR", "Creates QR/virtual-account payment orders and sends payment webhooks")
+System_Ext(smtp, "SMTP / Brevo", "Sends OTP and order emails")
+System_Ext(gemini, "Google Gemini", "LLM, embeddings and tool calling for the chatbot")
+
+Rel(customer, luala, "Uses", "HTTPS")
+Rel(admin, luala, "Operates", "HTTPS")
+Rel(luala, firebase, "Verifies Google ID tokens")
+Rel(luala, sepay, "Creates payment intent and receives webhook")
+Rel(luala, smtp, "Sends emails")
+Rel(luala, gemini, "Generates assistant responses and embeddings")
+
+@enduml
+

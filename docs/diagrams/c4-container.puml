@@ -1,0 +1,55 @@
+@startuml LUA_LA_Container
+!include https://raw.githubusercontent.com/plantuml-stdlib/C4-PlantUML/master/C4_Container.puml
+
+title LUA LA Online Clothing Shop - C4 Container
+
+Person(customer, "Customer", "Uses the web shop")
+
+System_Boundary(system, "LUA LA Online Clothing Shop") {
+  Container(frontend, "Next.js Frontend / BFF", "Next.js 16, React 19", "UI, local cart/wishlist, auth context, protected routes, API rewrites, payment waiting route")
+  Container(gateway, "Nginx API Gateway", "Nginx", "Routes API calls to backend services; forwards remote services between EC2 nodes")
+
+  Container(user, "user-service", "NestJS, MongoDB, JWT, Firebase Admin", "Authentication, profile, OTP, Google login")
+  Container(product, "product-service", "NestJS, MongoDB, Redis cache", "Product catalog, search/filter/sort, stock reservation")
+  Container(order, "order-service", "NestJS, MongoDB, Redis Streams", "Orders, payment-completed materialization, stock confirmation/cancellation")
+  Container(payment, "payment-service", "NestJS, MongoDB, SePay, WebSocket", "Payment intent, webhook reconciliation, payment status, refunds")
+  Container(email, "email-service", "NestJS, Nodemailer, Redis Streams", "OTP and order confirmation email consumers")
+  Container(chatbot, "chat-bot-service", "NestJS, Gemini, MongoDB vector search", "AI assistant, product search, add-to-cart, profile update")
+
+  ContainerDb(redis, "Redis", "Redis Streams, Pub/Sub, Cache", "Event bus, payment status pub/sub, product cache, idempotency keys")
+  ContainerDb(mongo, "MongoDB", "MongoDB / Mongoose", "Users, OTPs, products, orders, payments")
+}
+
+System_Ext(firebase, "Firebase Auth", "Google identity")
+System_Ext(sepay, "SePay / VietQR", "Payment provider")
+System_Ext(smtp, "SMTP / Brevo", "Email provider")
+System_Ext(gemini, "Google Gemini", "LLM and embeddings")
+
+Rel(customer, frontend, "Uses", "HTTPS")
+Rel(frontend, gateway, "Calls /api/*", "HTTPS / Next rewrites")
+Rel(gateway, user, "Routes /api/auth, /api/users", "HTTP")
+Rel(gateway, product, "Routes /products", "HTTP")
+Rel(gateway, order, "Routes /orders", "HTTP")
+Rel(gateway, payment, "Routes /payments", "HTTP")
+Rel(gateway, chatbot, "Routes /chatbot, /chat", "HTTP")
+
+Rel(user, mongo, "Reads/writes users and OTP")
+Rel(product, mongo, "Reads/writes products and stock")
+Rel(order, mongo, "Reads/writes orders")
+Rel(payment, mongo, "Reads/writes payments")
+Rel(chatbot, mongo, "Reads products/users")
+
+Rel(user, redis, "Publishes auth.otp.requested")
+Rel(product, redis, "Cache-aside and stock events")
+Rel(order, redis, "Consumes/publishes order/payment/stock events")
+Rel(payment, redis, "Publishes payment.completed and payment status")
+Rel(email, redis, "Consumes email events and stores idempotency keys")
+Rel(frontend, redis, "Long-poll payment status subscriber")
+
+Rel(user, firebase, "Verifies Google ID token")
+Rel(payment, sepay, "Creates QR/VA orders and receives webhook")
+Rel(email, smtp, "Sends emails")
+Rel(chatbot, gemini, "Function calling and embeddings")
+
+@enduml
+

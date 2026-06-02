@@ -60,3 +60,4 @@ PLAN.md
 docker-compose.legacy.yml.bak
 *.pem
 *.pdf
+*.docx
