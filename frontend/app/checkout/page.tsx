@@ -123,6 +123,7 @@ export default function CheckoutPage() {
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
   const socketRef = useRef<WebSocket | null>(null);
   const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
+  const abortControllerRef = useRef<AbortController | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -142,6 +143,9 @@ export default function CheckoutPage() {
       }
       if (fallbackTimeoutRef.current) {
         clearTimeout(fallbackTimeoutRef.current);
+      }
+      if (abortControllerRef.current) {
+        abortControllerRef.current.abort();
       }
     };
   }, []);
@@ -260,7 +264,7 @@ export default function CheckoutPage() {
         setCheckoutState("bank_transfer_qr");
         toast.info("Scan the QR code to complete the bank transfer.");
 
-        startWebSocketPaymentStatus(payment.paymentId);
+        startLongPollPaymentStatus(payment.paymentId);
       }
     } catch (error: any) {
       toast.error(error.message || "Something went wrong while placing your order.");
@@ -342,39 +346,22 @@ export default function CheckoutPage() {
       clearTimeout(fallbackTimeoutRef.current);
       fallbackTimeoutRef.current = null;
     }
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
 
     clearCart();
     setCheckoutState("success");
     toast.success("Payment confirmed via SePay!");
   };
 
-  const startPollingPaymentStatus = (paymentId: string) => {
-    if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
-
-    pollingIntervalRef.current = setInterval(async () => {
-      try {
-        const response = await fetch(`/api/payments/${paymentId}`);
-        if (!response.ok) return;
-        const payment: PaymentInfo = await response.json();
-        setPaymentInfo(payment);
-
-        if (payment.status !== "COMPLETED") return;
-
-        // Stop polling
-        if (pollingIntervalRef.current) {
-          clearInterval(pollingIntervalRef.current);
-          pollingIntervalRef.current = null;
-        }
-
-        await handlePaymentSuccess(paymentId);
-      } catch (error) {
-        console.error("Error polling payment status:", error);
-      }
-    }, 3000);
-  };
-
-  const startWebSocketPaymentStatus = (paymentId: string) => {
+  const startLongPollPaymentStatus = (paymentId: string) => {
     // Clean up existing connections
+    if (abortControllerRef.current) {
+      abortControllerRef.current.abort();
+      abortControllerRef.current = null;
+    }
     if (socketRef.current) {
       socketRef.current.close();
       socketRef.current = null;
@@ -388,89 +375,47 @@ export default function CheckoutPage() {
       pollingIntervalRef.current = null;
     }
 
-    let wsUrl = "";
-    if (typeof window !== "undefined") {
-      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
-      if (isLocalhost) {
-        // Direct local connection
-        wsUrl = `ws://localhost:8085/payments/ws?paymentId=${paymentId}`;
-      } else {
-        // Production: construct from NEXT_PUBLIC_API_URL or use same origin
-        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
-        const wsProtocol = apiBaseUrl.startsWith("https:") ? "wss:" : "ws:";
-        const host = apiBaseUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
-        wsUrl = `${wsProtocol}//${host}/payments/ws?paymentId=${paymentId}`;
-      }
-    }
+    const controller = new AbortController();
+    abortControllerRef.current = controller;
 
-    if (!wsUrl) return;
+    const poll = async () => {
+      if (controller.signal.aborted) return;
 
-    console.log(`Connecting to WebSocket for payment: ${wsUrl}`);
-    const ws = new WebSocket(wsUrl);
-    socketRef.current = ws;
-
-    let hasReceivedStatus = false;
-    let isFallbackTriggered = false;
-
-    // 5-second connection fallback
-    fallbackTimeoutRef.current = setTimeout(() => {
-      if (ws.readyState !== WebSocket.OPEN && !hasReceivedStatus && !isFallbackTriggered) {
-        console.warn("WebSocket connection timeout. Falling back to polling.");
-        isFallbackTriggered = true;
-        toast.warning("Chuyển kết nối dự phòng để kiểm tra giao dịch...");
-        startPollingPaymentStatus(paymentId);
-      }
-    }, 5000);
-
-    ws.onopen = () => {
-      console.log("WebSocket connection established successfully.");
-      if (fallbackTimeoutRef.current) {
-        clearTimeout(fallbackTimeoutRef.current);
-        fallbackTimeoutRef.current = null;
-      }
-    };
-
-    ws.onmessage = async (event) => {
       try {
-        const payload = JSON.parse(event.data);
-        console.log("Received WebSocket event:", payload);
+        const response = await fetch(`/api/payments/${paymentId}/wait`, {
+          signal: controller.signal,
+          cache: "no-store",
+        });
 
-        if (payload.event === "payment_status") {
-          const status = payload.data?.status;
-          if (status === "COMPLETED") {
-            hasReceivedStatus = true;
-            ws.close();
-            await handlePaymentSuccess(paymentId);
-          } else if (status === "FAILED") {
-            hasReceivedStatus = true;
-            ws.close();
-            toast.error("Thanh toán không thành công.");
-            setCheckoutState("input");
-          }
+        if (!response.ok) {
+          throw new Error(`HTTP error! status: ${response.status}`);
         }
-      } catch (err) {
-        console.error("Failed to parse WebSocket message:", err);
+
+        const data = await response.json();
+
+        if (controller.signal.aborted) return;
+
+        if (data.status === "COMPLETED") {
+          await handlePaymentSuccess(paymentId);
+        } else if (data.status === "FAILED") {
+          toast.error("Thanh toán không thành công.");
+          setCheckoutState("input");
+        } else {
+          // If status is PENDING (timeout/long-poll closed), re-trigger wait after 1 second
+          fallbackTimeoutRef.current = setTimeout(poll, 1000);
+        }
+      } catch (err: any) {
+        if (err.name === "AbortError") {
+          console.log("Long poll aborted.");
+          return;
+        }
+        console.error("Error in payment long-polling:", err);
+        // On network error or other HTTP errors, retry after 2 seconds
+        fallbackTimeoutRef.current = setTimeout(poll, 2000);
       }
     };
 
-    ws.onerror = (err) => {
-      console.error("WebSocket error occurred:", err);
-      if (!hasReceivedStatus && !isFallbackTriggered) {
-        isFallbackTriggered = true;
-        console.log("WebSocket error: Falling back to polling.");
-        toast.warning("Kết nối mạng lỗi nhẹ, chuyển sang kiểm tra tự động...");
-        startPollingPaymentStatus(paymentId);
-      }
-    };
-
-    ws.onclose = () => {
-      console.log("WebSocket connection closed.");
-      if (!hasReceivedStatus && !isFallbackTriggered) {
-        isFallbackTriggered = true;
-        console.log("WebSocket closed: Falling back to polling.");
-        startPollingPaymentStatus(paymentId);
-      }
-    };
+    poll();
   };
 
   const bankInfo = getBankDisplayInfo();

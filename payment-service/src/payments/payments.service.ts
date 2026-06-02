@@ -5,6 +5,7 @@ import {
   InternalServerErrorException,
   NotFoundException,
   Logger,
+  Inject,
 } from '@nestjs/common';
 import { InjectModel } from '@nestjs/mongoose';
 import { isValidObjectId, Model } from 'mongoose';
@@ -16,6 +17,8 @@ import { CreateCheckoutIntentDto } from './dto/create-checkout-intent.dto';
 import { StreamPublisherService } from '../events/stream-publisher.service';
 import { PaymentCompletedPayload, STREAM_NAMES } from '../events/event-types';
 import { PaymentsGateway } from './payments.gateway';
+import Redis from 'ioredis';
+import { REDIS_PUBLISHER } from '../events/redis-client';
 
 interface SePayOrderResult {
   sepayOrderId: string;
@@ -44,6 +47,7 @@ export class PaymentsService {
     private readonly configService: ConfigService,
     private readonly streamPublisher: StreamPublisherService,
     private readonly paymentsGateway: PaymentsGateway,
+    @Inject(REDIS_PUBLISHER) private readonly redisPublisher: Redis,
   ) {
     this.webhookToken = this.configService.get<string>('SEPAY_WEBHOOK_SECRET') || 'test_token';
     this.vaPrefix = this.configService.get<string>('SEPAY_VA_PREFIX') || 'SEP20002ILUALA';
@@ -414,6 +418,11 @@ export class PaymentsService {
       await payment.save();
       
       this.paymentsGateway.sendPaymentStatus(payment._id.toString(), 'FAILED');
+      try {
+        await this.redisPublisher.publish(`payment:status:${payment._id.toString()}`, 'FAILED');
+      } catch (err) {
+        this.logger.error(`Failed to publish FAILED status to Redis Pub/Sub: ${(err as Error).message}`);
+      }
       
       throw new BadRequestException(`Insufficient amount received. Required ${payment.amount}`);
     }
@@ -427,6 +436,11 @@ export class PaymentsService {
     this.logger.log(`Payment ${payment._id} marked COMPLETED. Publishing payment.completed to Redis Stream.`);
     
     this.paymentsGateway.sendPaymentStatus(payment._id.toString(), 'COMPLETED');
+    try {
+      await this.redisPublisher.publish(`payment:status:${payment._id.toString()}`, 'COMPLETED');
+    } catch (err) {
+      this.logger.error(`Failed to publish COMPLETED status to Redis Pub/Sub: ${(err as Error).message}`);
+    }
 
     if (payment.pendingCheckout) {
       try {
