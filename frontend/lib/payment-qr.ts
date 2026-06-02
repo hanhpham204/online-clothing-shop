@@ -17,7 +17,7 @@ export interface BankDisplayInfo {
 export function getBankDisplayInfo(): BankDisplayInfo {
   return {
     bankId: process.env.NEXT_PUBLIC_BANK_ID || "Sacombank",
-    bankAccount: process.env.NEXT_PUBLIC_BANK_ACCOUNT || "SEP20002ILUALA",
+    bankAccount: process.env.NEXT_PUBLIC_BANK_ACCOUNT || "SEP10002ILUALA",
     accountName: process.env.NEXT_PUBLIC_BANK_ACCOUNT_NAME || "LUALA SHOP",
     isVa: process.env.NEXT_PUBLIC_IS_VA !== "false",
   };

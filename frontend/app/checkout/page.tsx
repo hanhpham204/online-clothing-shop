@@ -382,7 +382,7 @@ export default function CheckoutPage() {
       if (controller.signal.aborted) return;
 
       try {
-        const response = await fetch(`/api/payments/${paymentId}/wait`, {
+        const response = await fetch(`/api/payment-wait/${paymentId}`, {
           signal: controller.signal,
           cache: "no-store",
         });

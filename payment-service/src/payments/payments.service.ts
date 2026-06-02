@@ -50,7 +50,7 @@ export class PaymentsService {
     @Inject(REDIS_PUBLISHER) private readonly redisPublisher: Redis,
   ) {
     this.webhookToken = this.configService.get<string>('SEPAY_WEBHOOK_SECRET') || 'test_token';
-    this.vaPrefix = this.configService.get<string>('SEPAY_VA_PREFIX') || 'SEP20002ILUALA';
+    this.vaPrefix = this.configService.get<string>('SEPAY_VA_PREFIX') || 'SEP10002ILUALA';
     this.sepayApiBaseUrl = this.configService.get<string>('SEPAY_API_BASE_URL') || 'https://userapi.sepay.vn';
     this.sepayApiToken = this.configService.get<string>('SEPAY_API_TOKEN') || '';
     this.sepayBankAccountXid = this.configService.get<string>('SEPAY_BANK_ACCOUNT_XID') || '';
