@@ -121,6 +121,8 @@ export default function CheckoutPage() {
   const [copiedField, setCopiedField] = useState<string | null>(null);
 
   const pollingIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const socketRef = useRef<WebSocket | null>(null);
+  const fallbackTimeoutRef = useRef<NodeJS.Timeout | null>(null);
 
   useEffect(() => {
     if (user) {
@@ -134,6 +136,12 @@ export default function CheckoutPage() {
     return () => {
       if (pollingIntervalRef.current) {
         clearInterval(pollingIntervalRef.current);
+      }
+      if (socketRef.current) {
+        socketRef.current.close();
+      }
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
       }
     };
   }, []);
@@ -252,13 +260,92 @@ export default function CheckoutPage() {
         setCheckoutState("bank_transfer_qr");
         toast.info("Scan the QR code to complete the bank transfer.");
 
-        startPollingPaymentStatus(payment.paymentId);
+        startWebSocketPaymentStatus(payment.paymentId);
       }
     } catch (error: any) {
       toast.error(error.message || "Something went wrong while placing your order.");
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  const handlePaymentSuccess = async (paymentId: string) => {
+    // Fetch latest payment details first to check if orderId exists
+    let latestPayment: PaymentInfo | null = null;
+    try {
+      const response = await fetch(`/api/payments/${paymentId}`);
+      if (response.ok) {
+        latestPayment = await response.json();
+        if (latestPayment) {
+          setPaymentInfo(latestPayment);
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to fetch final payment details:", err);
+    }
+
+    const orderId = latestPayment?.orderId || paymentInfo?.orderId;
+    const cartTotal = latestPayment?.cartTotal || paymentInfo?.cartTotal || subtotal;
+
+    let resolvedOrder: OrderResponse | null = null;
+    if (orderId) {
+      // Try to fetch the materialized order from database (since Stream processing is async, try up to 3 times)
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        try {
+          const orderRes = await fetch(`/api/orders/${orderId}`);
+          if (orderRes.ok) {
+            resolvedOrder = (await orderRes.json()) as OrderResponse;
+            break;
+          }
+        } catch (err) {
+          console.warn(`Order fetch attempt ${attempt} failed:`, err);
+        }
+        await new Promise((r) => setTimeout(r, 800));
+      }
+    }
+
+    if (!resolvedOrder) {
+      resolvedOrder = {
+        _id: orderId || "pending",
+        fullName: fullName.trim(),
+        phoneNumber: phoneNumber.trim(),
+        shippingAddress: shippingAddress.trim(),
+        items: cartItems.map((item) => ({
+          productId: item.id.split("-")[0],
+          name: item.name,
+          price: item.price,
+          quantity: item.qty,
+          size: item.size || "M",
+          image: item.image,
+        })),
+        totalAmount: cartTotal,
+        paymentMethod: "BANK_TRANSFER",
+        paymentStatus: "PAID",
+        orderStatus: "CONFIRMED",
+        paymentId: paymentId,
+        createdAt: new Date().toISOString(),
+      };
+    }
+
+    setCreatedOrder(resolvedOrder);
+    
+    // Clean up connections/intervals
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+    if (fallbackTimeoutRef.current) {
+      clearTimeout(fallbackTimeoutRef.current);
+      fallbackTimeoutRef.current = null;
+    }
+
+    clearCart();
+    setCheckoutState("success");
+    toast.success("Payment confirmed via SePay!");
   };
 
   const startPollingPaymentStatus = (paymentId: string) => {
@@ -273,58 +360,117 @@ export default function CheckoutPage() {
 
         if (payment.status !== "COMPLETED") return;
 
-        // Payment is confirmed. The order may be materialized a moment later
-        // by order-service consuming the payment.completed stream. Try to
-        // fetch the real Order if order-service has finished creating it;
-        // otherwise fall back to a synthetic snapshot built from local state
-        // so the success view always renders.
-        let resolvedOrder: OrderResponse | null = null;
-        if (payment.orderId) {
-          try {
-            const orderRes = await fetch(`/api/orders/${payment.orderId}`);
-            if (orderRes.ok) {
-              resolvedOrder = (await orderRes.json()) as OrderResponse;
-            }
-          } catch (err) {
-            console.warn("Order fetch failed after payment confirmed:", err);
-          }
-        }
-
-        if (!resolvedOrder) {
-          resolvedOrder = {
-            _id: payment.orderId || "pending",
-            fullName: fullName.trim(),
-            phoneNumber: phoneNumber.trim(),
-            shippingAddress: shippingAddress.trim(),
-            items: cartItems.map((item) => ({
-              productId: item.id.split("-")[0],
-              name: item.name,
-              price: item.price,
-              quantity: item.qty,
-              size: item.size || "M",
-              image: item.image,
-            })),
-            totalAmount: payment.cartTotal ?? subtotal,
-            paymentMethod: "BANK_TRANSFER",
-            paymentStatus: "PAID",
-            orderStatus: "CONFIRMED",
-            paymentId: payment.paymentId,
-            createdAt: new Date().toISOString(),
-          };
-        }
-
-        setCreatedOrder(resolvedOrder);
+        // Stop polling
         if (pollingIntervalRef.current) {
           clearInterval(pollingIntervalRef.current);
           pollingIntervalRef.current = null;
         }
-        clearCart();
-        setCheckoutState("success");
-        toast.success("Payment confirmed via SePay!");
+
+        await handlePaymentSuccess(paymentId);
       } catch (error) {
         console.error("Error polling payment status:", error);
       }
     }, 3000);
+  };
+
+  const startWebSocketPaymentStatus = (paymentId: string) => {
+    // Clean up existing connections
+    if (socketRef.current) {
+      socketRef.current.close();
+      socketRef.current = null;
+    }
+    if (fallbackTimeoutRef.current) {
+      clearTimeout(fallbackTimeoutRef.current);
+      fallbackTimeoutRef.current = null;
+    }
+    if (pollingIntervalRef.current) {
+      clearInterval(pollingIntervalRef.current);
+      pollingIntervalRef.current = null;
+    }
+
+    let wsUrl = "";
+    if (typeof window !== "undefined") {
+      const isLocalhost = window.location.hostname === "localhost" || window.location.hostname === "127.0.0.1";
+      if (isLocalhost) {
+        // Direct local connection
+        wsUrl = `ws://localhost:8085/payments/ws?paymentId=${paymentId}`;
+      } else {
+        // Production: construct from NEXT_PUBLIC_API_URL or use same origin
+        const apiBaseUrl = process.env.NEXT_PUBLIC_API_URL || window.location.origin;
+        const wsProtocol = apiBaseUrl.startsWith("https:") ? "wss:" : "ws:";
+        const host = apiBaseUrl.replace(/^https?:\/\//, "").replace(/\/$/, "");
+        wsUrl = `${wsProtocol}//${host}/payments/ws?paymentId=${paymentId}`;
+      }
+    }
+
+    if (!wsUrl) return;
+
+    console.log(`Connecting to WebSocket for payment: ${wsUrl}`);
+    const ws = new WebSocket(wsUrl);
+    socketRef.current = ws;
+
+    let hasReceivedStatus = false;
+    let isFallbackTriggered = false;
+
+    // 5-second connection fallback
+    fallbackTimeoutRef.current = setTimeout(() => {
+      if (ws.readyState !== WebSocket.OPEN && !hasReceivedStatus && !isFallbackTriggered) {
+        console.warn("WebSocket connection timeout. Falling back to polling.");
+        isFallbackTriggered = true;
+        toast.warning("Chuyển kết nối dự phòng để kiểm tra giao dịch...");
+        startPollingPaymentStatus(paymentId);
+      }
+    }, 5000);
+
+    ws.onopen = () => {
+      console.log("WebSocket connection established successfully.");
+      if (fallbackTimeoutRef.current) {
+        clearTimeout(fallbackTimeoutRef.current);
+        fallbackTimeoutRef.current = null;
+      }
+    };
+
+    ws.onmessage = async (event) => {
+      try {
+        const payload = JSON.parse(event.data);
+        console.log("Received WebSocket event:", payload);
+
+        if (payload.event === "payment_status") {
+          const status = payload.data?.status;
+          if (status === "COMPLETED") {
+            hasReceivedStatus = true;
+            ws.close();
+            await handlePaymentSuccess(paymentId);
+          } else if (status === "FAILED") {
+            hasReceivedStatus = true;
+            ws.close();
+            toast.error("Thanh toán không thành công.");
+            setCheckoutState("input");
+          }
+        }
+      } catch (err) {
+        console.error("Failed to parse WebSocket message:", err);
+      }
+    };
+
+    ws.onerror = (err) => {
+      console.error("WebSocket error occurred:", err);
+      if (!hasReceivedStatus && !isFallbackTriggered) {
+        isFallbackTriggered = true;
+        console.log("WebSocket error: Falling back to polling.");
+        toast.warning("Kết nối mạng lỗi nhẹ, chuyển sang kiểm tra tự động...");
+        startPollingPaymentStatus(paymentId);
+      }
+    };
+
+    ws.onclose = () => {
+      console.log("WebSocket connection closed.");
+      if (!hasReceivedStatus && !isFallbackTriggered) {
+        isFallbackTriggered = true;
+        console.log("WebSocket closed: Falling back to polling.");
+        startPollingPaymentStatus(paymentId);
+      }
+    };
   };
 
   const bankInfo = getBankDisplayInfo();
@@ -618,7 +764,18 @@ export default function CheckoutPage() {
           <div className="flex gap-4">
             <button
               onClick={() => {
-                if (pollingIntervalRef.current) clearInterval(pollingIntervalRef.current);
+                if (pollingIntervalRef.current) {
+                  clearInterval(pollingIntervalRef.current);
+                  pollingIntervalRef.current = null;
+                }
+                if (socketRef.current) {
+                  socketRef.current.close();
+                  socketRef.current = null;
+                }
+                if (fallbackTimeoutRef.current) {
+                  clearTimeout(fallbackTimeoutRef.current);
+                  fallbackTimeoutRef.current = null;
+                }
                 setCheckoutState("input");
               }}
               className="flex-1 py-3 border border-slate-800 hover:border-slate-700 bg-slate-950/20 hover:bg-slate-900/40 text-slate-300 font-medium rounded-xl transition-all active:scale-[0.98] text-sm"

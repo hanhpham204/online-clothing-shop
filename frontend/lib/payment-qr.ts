@@ -36,7 +36,13 @@ export function getPaymentQrUrl(
   payment: PaymentQrInfo,
   bankInfo: BankDisplayInfo = getBankDisplayInfo(),
 ): string {
-  if (payment.qrCodeUrl) return payment.qrCodeUrl;
+  if (payment.qrCodeUrl) {
+    if (!payment.qrCodeUrl.includes("des=")) {
+      const separator = payment.qrCodeUrl.includes("?") ? "&" : "?";
+      return `${payment.qrCodeUrl}${separator}des=${encodeURIComponent(`LUALA ${payment.transferContent}`)}`;
+    }
+    return payment.qrCodeUrl;
+  }
 
   const vaAccountNumber = getVaAccountNumber(payment, bankInfo);
   const bankName = payment.bankName || bankInfo.bankId;

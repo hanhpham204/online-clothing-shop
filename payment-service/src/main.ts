@@ -1,6 +1,7 @@
 import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
+import { WsAdapter } from '@nestjs/platform-ws';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -14,6 +15,9 @@ async function bootstrap() {
     origin: corsOrigins,
     credentials: true,
   });
+
+  // Enable WebSocket adapter using native ws
+  app.useWebSocketAdapter(new WsAdapter(app));
 
   // Enable validation pipe globally
   app.useGlobalPipes(

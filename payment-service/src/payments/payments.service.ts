@@ -15,6 +15,7 @@ import { ConfigService } from '@nestjs/config';
 import { CreateCheckoutIntentDto } from './dto/create-checkout-intent.dto';
 import { StreamPublisherService } from '../events/stream-publisher.service';
 import { PaymentCompletedPayload, STREAM_NAMES } from '../events/event-types';
+import { PaymentsGateway } from './payments.gateway';
 
 interface SePayOrderResult {
   sepayOrderId: string;
@@ -42,6 +43,7 @@ export class PaymentsService {
     private readonly httpService: HttpService,
     private readonly configService: ConfigService,
     private readonly streamPublisher: StreamPublisherService,
+    private readonly paymentsGateway: PaymentsGateway,
   ) {
     this.webhookToken = this.configService.get<string>('SEPAY_WEBHOOK_SECRET') || 'test_token';
     this.vaPrefix = this.configService.get<string>('SEPAY_VA_PREFIX') || 'SEP20002ILUALA';
@@ -410,6 +412,9 @@ export class PaymentsService {
       this.logger.error(`Insufficient amount. Required: ${payment.amount}, Received: ${amountReceived}`);
       payment.status = 'FAILED';
       await payment.save();
+      
+      this.paymentsGateway.sendPaymentStatus(payment._id.toString(), 'FAILED');
+      
       throw new BadRequestException(`Insufficient amount received. Required ${payment.amount}`);
     }
 
@@ -420,6 +425,8 @@ export class PaymentsService {
     await payment.save();
 
     this.logger.log(`Payment ${payment._id} marked COMPLETED. Publishing payment.completed to Redis Stream.`);
+    
+    this.paymentsGateway.sendPaymentStatus(payment._id.toString(), 'COMPLETED');
 
     if (payment.pendingCheckout) {
       try {

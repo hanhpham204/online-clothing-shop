@@ -4,6 +4,7 @@ import { HttpModule } from '@nestjs/axios';
 import { PaymentsController } from './payments.controller';
 import { PaymentsService } from './payments.service';
 import { Payment, PaymentSchema } from './schemas/payment.schema';
+import { PaymentsGateway } from './payments.gateway';
 
 @Module({
   imports: [
@@ -11,7 +12,7 @@ import { Payment, PaymentSchema } from './schemas/payment.schema';
     HttpModule,
   ],
   controllers: [PaymentsController],
-  providers: [PaymentsService],
-  exports: [PaymentsService],
+  providers: [PaymentsService, PaymentsGateway],
+  exports: [PaymentsService, PaymentsGateway],
 })
 export class PaymentsModule {}
