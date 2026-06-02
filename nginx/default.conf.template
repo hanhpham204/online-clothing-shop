@@ -1,0 +1,40 @@
+server {
+    listen 80;
+    server_name localhost;
+
+    # Global proxy header overrides
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # --- Core Services (Local to EC2-1) ---
+    location /api/users {
+        proxy_pass http://user-service:8081;
+    }
+
+    location /api/auth {
+        proxy_pass http://user-service:8081;
+    }
+
+    location /users {
+        proxy_pass http://user-service:8081;
+    }
+
+    location /products {
+        proxy_pass http://product-service:8083;
+    }
+
+    location /orders {
+        proxy_pass http://order-service:8084;
+    }
+
+    # --- Supporting Services (Forwarded to EC2-2) ---
+    location /payments {
+        proxy_pass http://${EC2_2_IP}:8085;
+    }
+
+    location /chatbot {
+        proxy_pass http://${EC2_2_IP}:8088;
+    }
+}

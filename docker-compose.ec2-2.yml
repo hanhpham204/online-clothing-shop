@@ -1,0 +1,54 @@
+services:
+  payment-service:
+    build:
+      context: ./payment-service
+      dockerfile: Dockerfile
+    container_name: fashion-payment-service
+    restart: unless-stopped
+    ports:
+      - "8085:8085"
+    env_file:
+      - ./payment-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8085
+      - ORDER_SERVICE_URL=http://${EC2_1_IP}:8084
+    networks:
+      - appnet
+
+  email-service:
+    build:
+      context: ./email-service
+      dockerfile: Dockerfile
+    container_name: fashion-email-service
+    restart: unless-stopped
+    ports:
+      - "8087:8087"
+    env_file:
+      - ./email-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8087
+      - USER_SERVICE_URL=http://${EC2_1_IP}:8081
+    networks:
+      - appnet
+
+  chat-bot-service:
+    build:
+      context: ./chat-bot-service
+      dockerfile: Dockerfile
+    container_name: fashion-chat-bot-service
+    restart: unless-stopped
+    ports:
+      - "8088:8088"
+    env_file:
+      - ./chat-bot-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8088
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge

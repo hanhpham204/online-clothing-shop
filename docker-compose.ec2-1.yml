@@ -1,0 +1,72 @@
+services:
+  user-service:
+    build:
+      context: ./user-service
+      dockerfile: Dockerfile
+    container_name: fashion-user-service
+    restart: unless-stopped
+    ports:
+      - "8081:8081"
+    env_file:
+      - ./user-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8081
+      - EMAIL_SERVICE_URL=http://${EC2_2_IP}:8087
+    networks:
+      - appnet
+
+  product-service:
+    build:
+      context: ./product-service
+      dockerfile: Dockerfile
+    container_name: fashion-product-service
+    restart: unless-stopped
+    ports:
+      - "8083:8083"
+    env_file:
+      - ./product-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8083
+    networks:
+      - appnet
+
+  order-service:
+    build:
+      context: ./order-service
+      dockerfile: Dockerfile
+    container_name: fashion-order-service
+    restart: unless-stopped
+    ports:
+      - "8084:8084"
+    env_file:
+      - ./order-service/.env
+    environment:
+      - NODE_ENV=production
+      - PORT=8084
+      - PAYMENT_SERVICE_URL=http://${EC2_2_IP}:8085
+    networks:
+      - appnet
+
+  nginx-gateway:
+    image: nginx:alpine
+    container_name: fashion-nginx-gateway
+    restart: unless-stopped
+    ports:
+      - "80:80"
+    environment:
+      - EC2_2_IP=${EC2_2_IP}
+    volumes:
+      - ./nginx/default.conf.template:/etc/nginx/templates/default.conf.template:ro
+    depends_on:
+      - user-service
+      - product-service
+      - order-service
+    networks:
+      - appnet
+
+networks:
+  appnet:
+    driver: bridge
+
