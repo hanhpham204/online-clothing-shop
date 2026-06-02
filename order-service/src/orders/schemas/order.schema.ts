@@ -57,10 +57,11 @@ export class Order {
 
   @Prop({
     required: true,
-    enum: ['PENDING', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
-    default: 'PENDING',
+    enum: ['PENDING', 'PENDING_STOCK', 'CONFIRMED', 'SHIPPED', 'DELIVERED', 'CANCELLED'],
+    default: 'PENDING_STOCK',
   })
   orderStatus: string;
+
 
   // Unique (sparse) — so COD orders with no paymentId don't conflict, but the
   // payment.completed consumer can rely on Mongo's unique index to guarantee

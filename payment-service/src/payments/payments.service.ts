@@ -508,4 +508,37 @@ export class PaymentsService {
       eventId: `payment-completed:${payment._id.toString()}`,
     });
   }
+
+  async processRefund(orderId: string, paymentId: string | undefined, reason: string): Promise<void> {
+    this.logger.log(`Processing refund for orderId=${orderId} / paymentId=${paymentId} due to: ${reason}`);
+    
+    let payment: PaymentDocument | null = null;
+    if (paymentId) {
+      if (isValidObjectId(paymentId)) {
+        payment = await this.paymentModel.findById(paymentId).exec();
+      }
+      if (!payment) {
+        payment = await this.paymentModel.findOne({ paymentId }).exec();
+      }
+    }
+    
+    if (!payment) {
+      payment = await this.paymentModel.findOne({ orderId }).exec();
+    }
+
+    if (!payment) {
+      this.logger.warn(`No payment record found for orderId=${orderId} paymentId=${paymentId}. Skipping refund.`);
+      return;
+    }
+
+    if (payment.status === 'REFUNDED') {
+      this.logger.log(`Payment status is already REFUNDED.`);
+      return;
+    }
+
+    payment.status = 'REFUNDED';
+    await payment.save();
+    this.logger.log(`Payment status updated to REFUNDED.`);
+  }
 }
+

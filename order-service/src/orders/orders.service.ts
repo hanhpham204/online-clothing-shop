@@ -15,6 +15,7 @@ import { StreamPublisherService } from '../events/stream-publisher.service';
 import {
   OrderCreatedPayload,
   PaymentCompletedPayload,
+  OrderCancelledPayload,
   STREAM_NAMES,
 } from '../events/event-types';
 
@@ -55,7 +56,7 @@ export class OrdersService {
       ...createOrderDto,
       totalAmount,
       paymentStatus: 'PENDING',
-      orderStatus: 'PENDING',
+      orderStatus: 'PENDING_STOCK',
     });
 
     const savedOrder = await createdOrder.save();
@@ -90,7 +91,7 @@ export class OrdersService {
       totalAmount: payload.cartTotal,
       paymentMethod: 'BANK_TRANSFER',
       paymentStatus: 'PAID',
-      orderStatus: 'CONFIRMED',
+      orderStatus: 'PENDING_STOCK',
     });
 
     try {
@@ -200,5 +201,68 @@ export class OrdersService {
     order.paymentStatus = paymentStatus;
     order.orderStatus = orderStatus;
     return await order.save();
+  }
+
+  async cancelOrder(orderId: string, reason: string): Promise<OrderDocument> {
+    const order = await this.orderModel.findById(orderId);
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    order.orderStatus = 'CANCELLED';
+    const saved = await order.save();
+
+    this.logger.log(`Order ${orderId} has been CANCELLED. Reason: ${reason}`);
+
+    // Publish order.cancelled event so payment service can refund and product service can release stock
+    await this.publishOrderCancelled(saved, reason);
+
+    return saved;
+  }
+
+  async confirmOrder(orderId: string): Promise<OrderDocument> {
+    const order = await this.orderModel.findById(orderId);
+    if (!order) {
+      throw new NotFoundException(`Order with ID ${orderId} not found`);
+    }
+
+    if (order.paymentMethod === 'COD') {
+      order.orderStatus = 'PENDING';
+    } else {
+      order.orderStatus = 'CONFIRMED';
+    }
+
+    const saved = await order.save();
+    this.logger.log(`Order ${orderId} has been CONFIRMED. Current status: ${saved.orderStatus}`);
+    return saved;
+  }
+
+  private async publishOrderCancelled(order: OrderDocument, reason: string) {
+    const payload: OrderCancelledPayload = {
+      orderId: order._id.toString(),
+      paymentId: order.paymentId,
+      userId: order.userId,
+      email: order.email,
+      totalAmount: order.totalAmount,
+      reason,
+      items: order.items.map((item) => ({
+        productId: item.productId,
+        name: item.name,
+        price: item.price,
+        quantity: item.quantity,
+        size: item.size,
+        image: item.image,
+      })),
+    };
+
+    try {
+      await this.streamPublisher.publish(STREAM_NAMES.orderCancelled, payload, {
+        eventId: `order-cancelled:${payload.orderId}`,
+      });
+    } catch (err) {
+      this.logger.warn(
+        `Could not publish order.cancelled for ${payload.orderId}: ${(err as Error).message}`,
+      );
+    }
   }
 }

@@ -4,6 +4,8 @@ import { MongooseModule } from '@nestjs/mongoose';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { ProductsModule } from './products/products.module';
+import { EventsModule } from './events/events.module';
+import { ListenersModule } from './listeners/listeners.module';
 
 @Module({
   imports: [
@@ -16,8 +18,12 @@ import { ProductsModule } from './products/products.module';
       }),
     }),
     ProductsModule,
+    EventsModule,
+    ListenersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+
+

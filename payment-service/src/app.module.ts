@@ -5,6 +5,7 @@ import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PaymentsModule } from './payments/payments.module';
 import { EventsModule } from './events/events.module';
+import { ListenersModule } from './listeners/listeners.module';
 
 @Module({
   imports: [
@@ -19,8 +20,10 @@ import { EventsModule } from './events/events.module';
     }),
     EventsModule,
     PaymentsModule,
+    ListenersModule,
   ],
   controllers: [AppController],
   providers: [AppService],
 })
 export class AppModule {}
+

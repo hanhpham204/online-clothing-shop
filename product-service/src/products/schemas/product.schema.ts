@@ -34,6 +34,10 @@ export class Product {
 
   @Prop({ type: [Number], default: [] })
   embedding?: number[];
+
+  @Prop({ type: Number, default: 100 })
+  stock: number;
 }
 
 export const ProductSchema = SchemaFactory.createForClass(Product);
+

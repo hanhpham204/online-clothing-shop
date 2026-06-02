@@ -184,4 +184,59 @@ export class ProductsService {
 
     return deletedProduct;
   }
+
+  async reserveStock(items: { productId: string; quantity: number }[]): Promise<void> {
+    const updatedItems: { productId: string; quantity: number }[] = [];
+    try {
+      for (const item of items) {
+        const product = await this.productModel.findById(item.productId).exec();
+        if (!product) {
+          throw new Error(`Sản phẩm ${item.productId} không tồn tại`);
+        }
+        if (product.stock < item.quantity) {
+          throw new Error(`Sản phẩm ${product.name} hết hàng (Yêu cầu: ${item.quantity}, Hiện có: ${product.stock})`);
+        }
+        product.stock -= item.quantity;
+        await product.save();
+        updatedItems.push(item);
+        
+        // Xóa cache chi tiết
+        void this.cacheManager.del(`product:detail:${item.productId}`).catch(() => {});
+      }
+      void this.clearProductsListCache().catch(() => {});
+    } catch (err) {
+      // Rollback stock reservation
+      for (const rollbackItem of updatedItems) {
+        try {
+          const product = await this.productModel.findById(rollbackItem.productId).exec();
+          if (product) {
+            product.stock += rollbackItem.quantity;
+            await product.save();
+            void this.cacheManager.del(`product:detail:${rollbackItem.productId}`).catch(() => {});
+          }
+        } catch (rollbackErr) {
+          console.error(`Rollback stock thất bại cho sản phẩm ${rollbackItem.productId}:`, rollbackErr);
+        }
+      }
+      void this.clearProductsListCache().catch(() => {});
+      throw err;
+    }
+  }
+
+  async releaseStock(items: { productId: string; quantity: number }[]): Promise<void> {
+    for (const item of items) {
+      try {
+        const product = await this.productModel.findById(item.productId).exec();
+        if (product) {
+          product.stock += item.quantity;
+          await product.save();
+          void this.cacheManager.del(`product:detail:${item.productId}`).catch(() => {});
+        }
+      } catch (err) {
+        console.error(`Release stock thất bại cho sản phẩm ${item.productId}:`, err);
+      }
+    }
+    void this.clearProductsListCache().catch(() => {});
+  }
 }
+

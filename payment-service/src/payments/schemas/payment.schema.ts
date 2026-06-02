@@ -67,7 +67,7 @@ export class Payment {
   @Prop({ required: true, unique: true })
   transferContent: string;
 
-  @Prop({ required: true, enum: ['PENDING', 'COMPLETED', 'FAILED'], default: 'PENDING' })
+  @Prop({ required: true, enum: ['PENDING', 'COMPLETED', 'FAILED', 'REFUNDED'], default: 'PENDING' })
   status: string;
 
   @Prop()
