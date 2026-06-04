@@ -1,0 +1,32 @@
+import { NestFactory } from '@nestjs/core';
+import { AppModule } from './app.module';
+import { ValidationPipe } from '@nestjs/common';
+import { WsAdapter } from '@nestjs/platform-ws';
+
+async function bootstrap() {
+  const app = await NestFactory.create(AppModule);
+  
+  // CORS configuration
+  const corsOrigins = process.env.CORS_ALLOWED_ORIGINS?.split(",").map((origin) =>
+    origin.trim(),
+  ) || [];
+
+  app.enableCors({
+    origin: corsOrigins,
+    credentials: true,
+  });
+
+  // Enable WebSocket adapter using native ws
+  app.useWebSocketAdapter(new WsAdapter(app));
+
+  // Enable validation pipe globally
+  app.useGlobalPipes(
+    new ValidationPipe({
+      whitelist: true,
+      transform: true,
+    }),
+  );
+
+  await app.listen(process.env.PORT ?? 8085);
+}
+bootstrap();

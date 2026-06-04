@@ -1,0 +1,91 @@
+flowchart TB
+  subgraph UserService[user-service]
+    AuthController[AuthController]
+    AuthService[AuthService]
+    UsersService[UsersService]
+    JwtStrategy[JwtStrategy / JwtAuthGuard]
+    FirebaseService[FirebaseService]
+    UserMongo[(User/Otp Mongo models)]
+    AuthEvents[StreamPublisher]
+    AuthController --> AuthService
+    AuthService --> UsersService
+    AuthService --> FirebaseService
+    AuthService --> AuthEvents
+    UsersService --> UserMongo
+    JwtStrategy --> AuthController
+  end
+
+  subgraph ProductService[product-service]
+    ProductsController[ProductsController]
+    ProductsService[ProductsService]
+    ProductMongo[(Product Mongo model)]
+    ProductCache[(Redis cache)]
+    OrderCreatedConsumer[OrderCreatedConsumer]
+    OrderCancelledConsumer[OrderCancelledConsumer]
+    ProductEvents[StreamPublisher]
+    ProductsController --> ProductsService
+    ProductsService --> ProductMongo
+    ProductsService --> ProductCache
+    OrderCreatedConsumer --> ProductsService
+    OrderCreatedConsumer --> ProductEvents
+    OrderCancelledConsumer --> ProductsService
+  end
+
+  subgraph OrderService[order-service]
+    OrdersController[OrdersController]
+    OrdersService[OrdersService]
+    OrderMongo[(Order Mongo model)]
+    PaymentCompletedConsumer[PaymentCompletedConsumer]
+    StockReservedConsumer[StockReservedConsumer]
+    StockFailedConsumer[StockFailedConsumer]
+    OrderEvents[StreamPublisher]
+    OrdersController --> OrdersService
+    PaymentCompletedConsumer --> OrdersService
+    StockReservedConsumer --> OrdersService
+    StockFailedConsumer --> OrdersService
+    OrdersService --> OrderMongo
+    OrdersService --> OrderEvents
+  end
+
+  subgraph PaymentService[payment-service]
+    PaymentsController[PaymentsController]
+    PaymentsService[PaymentsService]
+    PaymentsGateway[PaymentsGateway WebSocket]
+    PaymentMongo[(Payment Mongo model)]
+    SePayClient[SePay API client]
+    PaymentEvents[StreamPublisher / Redis PubSub]
+    OrderCancelledPaymentConsumer[OrderCancelledConsumer]
+    PaymentsController --> PaymentsService
+    PaymentsService --> PaymentMongo
+    PaymentsService --> SePayClient
+    PaymentsService --> PaymentsGateway
+    PaymentsService --> PaymentEvents
+    OrderCancelledPaymentConsumer --> PaymentsService
+  end
+
+  subgraph EmailService[email-service]
+    OtpEmailConsumer[OtpEmailConsumer]
+    OrderEmailConsumer[OrderEmailConsumer]
+    Idempotency[IdempotencyService - Redis SET NX]
+    MailService[MailService - Nodemailer]
+    Templates[Email templates]
+    OtpEmailConsumer --> Idempotency
+    OtpEmailConsumer --> Templates
+    OtpEmailConsumer --> MailService
+    OrderEmailConsumer --> Idempotency
+    OrderEmailConsumer --> Templates
+    OrderEmailConsumer --> MailService
+  end
+
+  subgraph ChatService[chat-bot-service]
+    ChatController[AppController /chat]
+    ChatServiceCore[AppService]
+    Gemini[Gemini function calling]
+    VectorSearch[MongoDB vector search]
+    ChatMongo[(Product/User Mongo models)]
+    ChatController --> ChatServiceCore
+    ChatServiceCore --> Gemini
+    ChatServiceCore --> VectorSearch
+    ChatServiceCore --> ChatMongo
+  end
+

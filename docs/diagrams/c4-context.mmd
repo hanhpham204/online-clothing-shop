@@ -1,0 +1,16 @@
+flowchart LR
+  Customer[Customer]
+  Admin[Admin / Shop Operator]
+  System[LUA LA Online Clothing Shop]
+  Firebase[External: Firebase Auth]
+  SePay[External: SePay / VietQR]
+  SMTP[External: SMTP / Brevo]
+  Gemini[External: Google Gemini AI]
+
+  Customer -->|Browse products, login, checkout, chat| System
+  Admin -->|Manage catalog/orders| System
+  System -->|Verify Google ID token| Firebase
+  System -->|Create QR/VA order, receive webhook| SePay
+  System -->|Send OTP and order emails| SMTP
+  System -->|LLM, embeddings, tool calling| Gemini
+

@@ -1,0 +1,57 @@
+server {
+    listen 80;
+    server_name localhost;
+
+    # Global proxy header overrides
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+
+    # Docker internal DNS resolver
+    resolver 127.0.0.11 valid=10s;
+
+    # Fail remote upstream connectivity issues quickly so the frontend does not appear stuck.
+    proxy_connect_timeout 5s;
+    proxy_send_timeout 30s;
+    proxy_read_timeout 30s;
+
+    # Dynamic upstream variables to prevent startup crashes
+    set $upstream_user user-service;
+    set $upstream_product product-service;
+    set $upstream_order order-service;
+
+    # --- Core Services (Local to EC2-1) ---
+    location /api/users {
+        proxy_pass http://$upstream_user:8081;
+    }
+
+    location /api/auth {
+        proxy_pass http://$upstream_user:8081;
+    }
+
+    location /users {
+        proxy_pass http://$upstream_user:8081;
+    }
+
+    location /products {
+        proxy_pass http://$upstream_product:8083;
+    }
+
+    location /orders {
+        proxy_pass http://$upstream_order:8084;
+    }
+
+    # --- Supporting Services (Forwarded to EC2-2) ---
+    location /payments {
+        proxy_pass http://${EC2_2_IP}:8085;
+    }
+
+    location /chatbot {
+        proxy_pass http://${EC2_2_IP}:8088;
+    }
+
+    location /chat {
+        proxy_pass http://${EC2_2_IP}:8088;
+    }
+}

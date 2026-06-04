@@ -1,65 +1,121 @@
+/* eslint-disable @next/next/no-img-element */
 import Image from "next/image";
+import Link from "next/link";
+import Header from "./components/Header";
+import Footer from "./components/Footer";
+
+const newSeasonIcon =
+  "https://www.figma.com/api/mcp/asset/4d1edab2-87c1-486a-b0b8-f39e9d0572a2";
+const premiumFabricsIcon =
+  "https://www.figma.com/api/mcp/asset/6ee49868-1ff8-4128-a446-e2c794dc4998";
 
 export default function Home() {
   return (
-    <div className="flex flex-col flex-1 items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex flex-1 w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
-          </p>
-        </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
+    <div className="min-h-screen bg-[#fafaf5]">
+      <Header />
+
+      {/* ── Hero Section ── */}
+      <main className="pt-8 px-6 md:px-16 max-w-[1280px] mx-auto">
+        <div className="grid grid-cols-1 md:grid-cols-12 gap-12 py-6 md:py-12">
+          {/* Left: Copy & CTAs */}
+          <div className="col-span-1 md:col-span-5 flex flex-col gap-8 justify-center self-center">
+            {/* Text block */}
+            <div className="flex flex-col gap-[22.8px]">
+              {/* Season badge */}
+              <div className="inline-flex">
+                <span className="bg-[#e3e3de] rounded-full px-4 py-[5px] text-[#444748] text-xs font-semibold tracking-[0.6px] uppercase">
+                  NEW SEASON
+                </span>
+              </div>
+
+              {/* Heading */}
+              <h1
+                className="text-[#1a1c19] text-[36px] sm:text-[48px] font-bold tracking-[-0.96px] leading-[1.1] font-jakarta"
+              >
+                Style for
+                <br />
+                Every Generation
+              </h1>
+
+              {/* Description */}
+              <p className="text-[#444748] text-[18px] leading-[1.6] max-w-[448px]">
+                Discover soft, elegant, and modern fashion for women, men, and
+                kids — designed for comfort, confidence, and everyday charm.
+              </p>
+            </div>
+
+            {/* CTA Buttons */}
+            <div className="flex items-center gap-4">
+              <Link
+                href="/collections"
+                className="bg-accent text-white text-[14px] font-medium tracking-[0.14px] px-8 py-4 rounded-full shadow-[0px_1px_2px_0px_rgba(111,89,89,0.25)] hover:bg-accent-hover active:scale-[0.98] transition-all"
+              >
+                Shop Now
+              </Link>
+              <Link
+                href="/collections"
+                className="border border-border-soft text-text-main text-[14px] font-medium tracking-[0.14px] px-8 py-4 rounded-full hover:bg-neutral-bg active:scale-[0.98] transition-all"
+              >
+                Explore Collection
+              </Link>
+            </div>
+
+            {/* Value indicators */}
+            <div className="pt-4">
+              <div className="border-t border-[#e3e3de] pt-8 flex gap-6">
+                <div className="flex items-center gap-3">
+                  <div className="bg-[#f6d9d9] rounded-full w-10 h-10 flex items-center justify-center shrink-0">
+                    <img
+                      src={newSeasonIcon}
+                      alt=""
+                      className="w-[16.67px] h-[15.83px]"
+                    />
+                  </div>
+                  <div className="text-[#444748] text-[12px] font-semibold tracking-[0.6px] uppercase leading-[1.4]">
+                    <p>NEW SEASON</p>
+                    <p>ARRIVALS</p>
+                  </div>
+                </div>
+
+                <div className="flex items-center gap-3">
+                  <div className="bg-[#e8e8e3] rounded-full w-10 h-10 flex items-center justify-center shrink-0">
+                    <img
+                      src={premiumFabricsIcon}
+                      alt=""
+                      className="w-[16.67px] h-[13.33px]"
+                    />
+                  </div>
+                  <div className="text-[#444748] text-[12px] font-semibold tracking-[0.6px] uppercase leading-[1.4]">
+                    <p>PREMIUM</p>
+                    <p>FABRICS</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Right: Fashion photo — stays self-stretch so it never exceeds the
+              image's native size and avoids upscaling/blur */}
+          <div className="col-span-1 md:col-span-7 self-stretch min-h-[350px] md:min-h-[500px] lg:max-h-[1008px] relative rounded-[32px] overflow-hidden shadow-[0px_10px_40px_-10px_rgba(111,89,89,0.05)]">
+            {/* Hero image */}
             <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
+              src="/hero_img.webp"
+              alt="Fashion collection — model wearing LUA LA styles"
+              fill
+              sizes="(max-width: 768px) 100vw, 58vw"
+              className="object-cover object-center"
+              quality={100}
+              priority
             />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
+            {/* Soft tint overlay */}
+            <div className="absolute inset-0 bg-[rgba(111,89,89,0.05)]" />
+
+            
+          </div>
         </div>
       </main>
+
+      <Footer />
     </div>
   );
 }
